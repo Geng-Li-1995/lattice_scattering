@@ -1,10 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+from input.config import Config
+
 
 class GEVPPlotter:
 
-    def __init__(self, config):
+    def __init__(self, config: Config):
 
         plt.rcParams.update(
             {
@@ -70,7 +72,12 @@ class GEVPPlotter:
     # ==================================================
     # main API
     # ==================================================
-    def plot_GEVP(self, matrix_before_GEVP, matrix_after_GEVP, sorted_eigenvectors):
+    def plot_GEVP(
+        self,
+        matrix_before_GEVP: np.ndarray,
+        matrix_after_GEVP: np.ndarray,
+        sorted_eigenvectors: np.ndarray,
+    ) -> None:
 
         # -------------------------
         # build labels

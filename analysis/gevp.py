@@ -4,8 +4,11 @@ import numpy as np
 from scipy import linalg
 from plotting.plot_gevp import GEVPPlotter
 
+from input.config import Config
+from input.types import FileDict
 
-def process_GEVP(config, file_dict):
+
+def process_GEVP(config: Config, file_dict: FileDict) -> FileDict:
     """
     Reshape tetraquark data from
     [channel_src, momentum_src, channel_snk, momentum_snk, time, sample]
@@ -51,6 +54,7 @@ def process_GEVP(config, file_dict):
 
     # Decide whether to perform GEVP and plot the matrix.
     # matrix_after_GEVP has shape: (nop_src, nop_snk, time, sample)
+    sorted_eigenvectors = None
     if getattr(config, "is_gevp", False):
         matrix_after_GEVP, eigenvalues, sorted_eigenvectors = solve_GEVP(
             config, matrix_before_GEVP
@@ -58,7 +62,11 @@ def process_GEVP(config, file_dict):
     else:
         matrix_after_GEVP = matrix_before_GEVP
 
-    if not getattr(config, "run_resample", False):
+    if (
+        not getattr(config, "run_resample", False)
+        and getattr(config, "is_gevp", False)
+        and sorted_eigenvectors is not None
+    ):
         GEVPPlotter(config).plot_GEVP(
             matrix_before_GEVP, matrix_after_GEVP, sorted_eigenvectors
         )
@@ -85,7 +93,7 @@ def process_GEVP(config, file_dict):
     return data_dict
 
 
-def solve_GEVP(config, matrix):
+def solve_GEVP(config: Config, matrix: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Solve GEVP:
         C(t) v_n = lambda_n C(t0) v_n
@@ -122,7 +130,9 @@ def solve_GEVP(config, matrix):
     return data_after_GEVP, eigenvalues, sorted_eigenvectors
 
 
-def greedy_sort_eigenvectors(eigenvectors):
+def greedy_sort_eigenvectors(
+    eigenvectors: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Greedy assignment of eigenvectors to dominant components.
 

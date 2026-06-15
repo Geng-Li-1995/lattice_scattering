@@ -1,7 +1,7 @@
 # selector.py
 
-import numpy as np
-from typing import List, Dict, Callable, Any
+from input.config import Config
+from input.types import CorrelatorArray, FileDict, ModelFn, PriorFn
 from analysis.models import MODEL_REGISTRY
 
 
@@ -12,20 +12,20 @@ class SelectorType:
     - Selecting model and prior
     """
 
-    def __init__(self, config: Any, data: Dict[str, List[np.ndarray]]):
+    def __init__(self, config: Config, data: FileDict):
         self.config = config
         self.data = data
 
     # ======================================================
     # 0. Data selection
     # ======================================================
-    def get_data(self) -> List[np.ndarray]:
-        """Return the dataset according to analysis type."""
+    def get_data(self) -> CorrelatorArray:
+        """Return correlator array [channel, momentum, time, sample]."""
 
-        if getattr(self.config, "is_meson_analysis", True):
+        if self.config.is_meson_analysis:
             return self.data["meson"]
 
-        if getattr(self.config, "is_tetraquark_analysis", False):
+        if self.config.is_tetraquark_analysis:
             return self.data["tetraquark"]
 
         raise ValueError("No valid analysis type selected in config")
@@ -33,14 +33,14 @@ class SelectorType:
     # ======================================================
     # 1. Model selection
     # ======================================================
-    def get_model(self) -> tuple[Callable, Any]:
+    def get_model(self) -> tuple[ModelFn, PriorFn]:
         """Return the fitting function and prior based on config."""
-        if getattr(self.config, "is_ratio", False):
+        if self.config.is_ratio:
             function = MODEL_REGISTRY["ratio"]["fn"]
             prior = MODEL_REGISTRY["ratio"]["prior"]
             return function, prior
 
-        n_state = getattr(self.config, "n_state", 2)
+        n_state = self.config.n_state
         if n_state == 2:
             function = MODEL_REGISTRY["two_states"]["fn"]
             prior = MODEL_REGISTRY["two_states"]["prior"]

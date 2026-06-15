@@ -84,7 +84,7 @@ class Bootstrap:
         boot_samples = self.resample()
         return np.std(boot_samples, axis=self.axis, ddof=0)
 
-    def gvar(self):
+    def gvar(self) -> tuple[np.ndarray, np.ndarray]:
         """
         Return mean and bootstrap error of the original data.
 

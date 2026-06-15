@@ -3,14 +3,13 @@
 from input.config import BuildConfig
 from data.io import read_file
 from analysis.fitting import RunFitting
-from statistics.resample import run_resample_statistics
 from plotting.plot_mass import MassPlotter
 from plotting.plot_scattering import ScatteringPlotter
 from analysis.gevp import process_GEVP
 from analysis.scattering import run_scattering_analysis
 
 
-def main():
+def main() -> None:
 
     # build config from input/name.py, e.g. input/Tcccc6600_input.py
     config = BuildConfig("Tcccc6600").build_config_from_control()
@@ -32,11 +31,10 @@ def main():
 
     # run and plot scattering analysis
     scattering_results_dict = run_scattering_analysis(config, resample_data_dict)
-    ScatteringPlotter(config).plot_Ks(scattering_results_dict)
-    ScatteringPlotter(config).plot_kcot(scattering_results_dict)
-
-    # run resample statistics
-    run_resample_statistics(config, file_dict)
+    if scattering_results_dict is not None:
+        scattering_plotter = ScatteringPlotter(config)
+        scattering_plotter.plot_Ks(scattering_results_dict)
+        scattering_plotter.plot_kcot(scattering_results_dict)
 
     # finished
     print("Main task is finished!")

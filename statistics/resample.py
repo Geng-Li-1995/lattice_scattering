@@ -9,9 +9,11 @@ from statistics.bootstrap import Bootstrap
 from analysis.fitting import RunFitting
 from analysis.models import MathModels
 from analysis.gevp import process_GEVP
+from input.config import Config
+from input.types import FileDict
 
 
-def get_resampler(config, data):
+def get_resampler(config: Config, data: np.ndarray) -> Jackknife | Bootstrap:
     resample_type = getattr(config, "resample_type", "jackknife")
     axis = getattr(config, "sample_axis", -1)
     n_boot = getattr(config, "n_boot", 1000)
@@ -19,15 +21,16 @@ def get_resampler(config, data):
     if resample_type == "jackknife":
         return Jackknife(data, axis=axis)
     if resample_type == "bootstrap":
-        return Bootstrap(data, axis=axis, n_boot=n_boot)
+        return Bootstrap(data, axis=axis, nboot=n_boot)
 
     raise ValueError(f"Unknown resample_type: {resample_type}")
 
 
-def run_resample_statistics(config, file_dict):
-    if not getattr(config, "run_resample", False):
-        return
-
+def run_resample_statistics(config: Config, file_dict: FileDict) -> None:
+    """
+    Run jackknife or bootstrap resampling and save energies to data/<system>/resampled/.
+    Intended to be called from run_resample.py.
+    """
     # -----------------------------
     # cache config (minor speedup)
     # -----------------------------
@@ -61,22 +64,33 @@ def run_resample_statistics(config, file_dict):
     # -----------------------------
     # outputs
     # -----------------------------
-    results = np.zeros((n_chan, mom_max, n_sample))
-    ksi = np.zeros((n_chan, n_sample)) if is_meson else None
+    resample_type = config.resample_type
+    n_iterations = config.n_boot if resample_type == "bootstrap" else n_sample
+
+    results = np.zeros((n_chan, mom_max, n_iterations))
+    ksi = np.zeros((n_chan, n_iterations)) if is_meson else None
 
     fitter = RunFitting(config)
+    rng = np.random.default_rng()
 
     # -----------------------------
     # main loop
     # -----------------------------
-    for sam in range(n_sample):
+    for sam in range(n_iterations):
 
-        # per-sample independent resampling
         file_resample_dict = {}
 
-        for key, file in file_dict.items():
-            resampler = get_resampler(config, file)
-            file_resample_dict[key] = resampler.resample_manual(sam)
+        if resample_type == "jackknife":
+            for key, file in file_dict.items():
+                file_resample_dict[key] = Jackknife(file, axis=sample_axis).resample_manual(
+                    sam
+                )
+        elif resample_type == "bootstrap":
+            boot_idx = rng.integers(0, n_sample, size=n_sample)
+            for key, file in file_dict.items():
+                file_resample_dict[key] = np.take(file, boot_idx, axis=sample_axis)
+        else:
+            raise ValueError(f"Unknown resample_type: {resample_type}")
 
         data_resample_dict = process_GEVP(config, file_resample_dict)
         fit_results = fitter.effective_mass(data_resample_dict)

@@ -3,19 +3,21 @@
 import numpy as np
 import lsqfit as lsf
 import gvar as gv
-from typing import List, Dict
+
+from input.config import Config
 from input.selector import SelectorType
+from input.types import FileDict, FitResultList
 from analysis.models import MathModels
 
 
 class RunFitting:
 
-    def __init__(self, config):
+    def __init__(self, config: Config):
         self.config = config
         self.lattice_Nt = config.lattice_Nt
-        self.results = []
+        self.results: FitResultList = []
 
-    def effective_mass(self, data_dict: Dict[str, List[np.ndarray]]):
+    def effective_mass(self, data_dict: FileDict) -> FitResultList:
         """
         Fitting effective mass
         """
@@ -71,7 +73,7 @@ class RunFitting:
 
         return self.results
 
-    def dispersion(self, En_result):
+    def dispersion(self, En_result: FitResultList) -> FitResultList:
         """
         Fitting dispersion relation from meson Ens
         """

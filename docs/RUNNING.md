@@ -108,7 +108,7 @@ class InputControl:
 | `lattice_Ns` | Selects which raw correlator set to load and fit |
 | `is_tetraquark_analysis` | Uses tetraquark channels and 3-state cosh model |
 | `is_meson_analysis` | Uses meson channels and 2-state cosh model |
-| `run_resample` | Runs per-configuration jackknife/bootstrap loop (slow) |
+| `run_resample` | Internal flag; set automatically by `run_resample.py` to suppress plots during resampling |
 | `run_scattering` | Computes \(K_s\) and \(k\cot\delta\) (needs `resampled/` files) |
 
 To switch the physics system, change the name in `main.py`:
@@ -123,7 +123,30 @@ config = BuildConfig("Tcccc6600").build_config_from_control()
 
 Always run from the **project root** so relative paths (`data/`, `result/`) resolve correctly.
 
-### Standard run (analysis + plotting)
+### Step 1 — Resampling (generate `resampled/` files)
+
+Scattering analysis requires jackknife/bootstrap outputs. Run this **first**, separately:
+
+```bash
+python run_resample.py
+```
+
+Configure in `input/Tcccc6600_input.py`:
+
+- `resample_type`: `"jackknife"` or `"bootstrap"`
+- `lattice_Ns`: ensemble to resample (run once per volume if needed)
+- `is_meson_analysis` / `is_tetraquark_analysis`: analysis type for this run
+
+**For full scattering**, generate all required files:
+
+| Run | Settings | Output |
+|-----|----------|--------|
+| Meson L12 | `lattice_Ns=12`, `is_meson_analysis=True` | `resample_ksi_meson_L12M420_EV170.npy`, `resample_En_meson_...` |
+| Meson L16 | `lattice_Ns=16`, `is_meson_analysis=True` | `resample_ksi_meson_L16M420_EV120.npy`, ... |
+| Tetraquark L12 | `lattice_Ns=12`, `is_tetraquark_analysis=True` | `resample_En_tetraquark_L12M420_EV170.npy` |
+| Tetraquark L16 | `lattice_Ns=16`, `is_tetraquark_analysis=True` | `resample_En_tetraquark_L16M420_EV120.npy` |
+
+### Step 2 — Main analysis (GEVP, fits, scattering plots)
 
 ```bash
 python main.py
@@ -132,42 +155,11 @@ python main.py
 Default execution order:
 
 1. Build `Config` from `input/Tcccc6600_input.py`
-2. Load correlators from `data/Tcccc6600/raw/`
+2. Load correlators from `data/Tcccc6600/raw/` and resampled files
 3. GEVP diagonalization + matrix plots
 4. Effective-mass fit → `En`, `Zn` plots
 5. Dispersion-relation fit → dispersion plot
 6. Scattering analysis → `Ks`, `kcot` plots
-7. Resampling loop *(skipped when `run_resample=False`)*
-
-### Two-stage workflow (recommended for scattering)
-
-Scattering analysis depends on resampled energy files. Run in two stages:
-
-**Stage 1 — generate resampled data:**
-
-```python
-# input/Tcccc6600_input.py
-run_resample: bool = True
-run_scattering: bool = False
-```
-
-```bash
-python main.py
-```
-
-This writes files to `data/Tcccc6600/resampled/`. For meson \(\xi\), also set `is_meson_analysis=True` and run once per ensemble.
-
-**Stage 2 — full analysis with scattering:**
-
-```python
-run_resample: bool = False
-run_scattering: bool = True
-is_tetraquark_analysis: bool = True
-```
-
-```bash
-python main.py
-```
 
 ### Headless / server (no display)
 
@@ -207,7 +199,7 @@ Fit parameters and diagnostics are printed to stdout during the run.
 |---------|--------------|-----|
 | `FileNotFoundError: Missing file: data/...` | Raw `.npy` not present | Place correlators in `data/<system>/raw/` with correct naming |
 | Scattering step returns `None` | `run_scattering=False` or not tetraquark mode | Set `run_scattering=True`, `is_tetraquark_analysis=True` |
-| Missing resampled files | `run_resample` never run | Run Stage 1 (§5) first |
+| Missing resampled files | `run_resample.py` never run | Run Step 1 (§5) first |
 | LaTeX error on plot | TeX not installed | Install TeX or disable `text.usetex` |
 | `Unknown lattice_Ns` | Invalid `lattice_Ns` value | Use `12` or `16` (see `get_lattice_params`) |
 | `Unknown ensemble key` | `lattice_Ns` / analysis type mismatch | Check `ENSEMBLE_DB` keys in input file |

@@ -70,7 +70,8 @@ Raw correlators (.npy)
 
 ```
 lattice_scattering/
-├── main.py                  # Pipeline entry point
+├── main.py                  # Analysis + plotting entry point
+├── run_resample.py          # Jackknife/bootstrap resampling (run first)
 ├── input/                   # Configuration layer
 │   ├── config.py            # BuildConfig → Config dataclass
 │   ├── Tcccc6600_input.py   # Physics parameters for Tcccc6600
@@ -133,14 +134,13 @@ python main.py
 The default pipeline (`main.py`):
 
 1. Build configuration from `input/Tcccc6600_input.py`
-2. Load correlators from `data/Tcccc6600/raw/`
+2. Load correlators from `data/Tcccc6600/raw/` and resampled files
 3. Apply GEVP to tetraquark data and plot correlation matrices
 4. Fit effective masses \(E_n\) and weights \(Z_n\)
 5. Fit dispersion relations and plot \(\xi\)
 6. Run scattering analysis and plot \(K_s\), \(k\cot\delta\)
-7. *(Optional)* Run jackknife/bootstrap resampling (`run_resample=True`)
 
-> **Note:** Scattering analysis requires resampled files in `data/<system>/resampled/`. Generate them first by setting `run_resample=True` — see [docs/RUNNING.md §5](docs/RUNNING.md#5-running-the-pipeline).
+> **Note:** Scattering analysis requires resampled files in `data/<system>/resampled/`. Generate them first with `python run_resample.py` — see [docs/RUNNING.md §5](docs/RUNNING.md#5-running-the-pipeline).
 
 ---
 
@@ -219,7 +219,7 @@ Scattering analysis combines results from both volumes (`InputControl.Ns_list = 
 
 ## Notes
 
-- Scattering analysis requires pre-generated resampled files in `resampled/`. Set `run_resample=True` first to produce them.
+- Scattering analysis requires pre-generated resampled files in `resampled/`. Run `python run_resample.py` first.
 - Plotting modules call `plt.show()`; on headless systems, set the matplotlib backend to `Agg`.
 - Some channel indices and momentum selections in `analysis/scattering.py` are currently hardcoded for Tcccc6600.
 

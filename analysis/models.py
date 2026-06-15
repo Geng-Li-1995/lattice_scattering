@@ -14,14 +14,14 @@ class MathModels:
     """
 
     @staticmethod
-    def two_states(t, parameter, lattice_Nt):
+    def two_states(t, parameter, lattice_Nt: int):
         mid = lattice_Nt / 2
         return parameter["weff_0"] * gv.cosh(
             parameter["meff_0"] * (t - mid)
         ) + parameter["weff_1"] * gv.cosh(parameter["meff_1"] * (t - mid))
 
     @staticmethod
-    def three_states(t, parameter, lattice_Nt):
+    def three_states(t, parameter, lattice_Nt: int):
         mid = lattice_Nt / 2
         return (
             parameter["weff_0"] * gv.cosh(parameter["meff_0"] * (t - mid))

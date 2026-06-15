@@ -5,7 +5,9 @@ import gvar as gv
 import lsqfit as lsf
 import matplotlib.pyplot as plt
 
+from input.config import Config
 from input.selector import SelectorType
+from input.types import FileDict, FitResultList
 from analysis.models import MathModels
 from statistics.resample import get_resampler
 
@@ -40,7 +42,7 @@ class MassPlotter:
 
     MARKERS = ["o", "x", "s", "^", "v", "<", ">", "*", "D", "p"]
 
-    def __init__(self, config):
+    def __init__(self, config: Config):
 
         plt.rcParams.update(
             {
@@ -59,11 +61,7 @@ class MassPlotter:
         self.chan_momt_list = config.chan_momt_list
         self.chan_name_list = config.chan_name_list
 
-        self.type_name = (
-            "tetraquark"
-            if getattr(config, "is_tetraquark_analysis", False)
-            else "meson"
-        )
+        self.type_name = "tetraquark" if config.is_tetraquark_analysis else "meson"
 
     # ==================================================
     # helpers
@@ -87,7 +85,7 @@ class MassPlotter:
     # ==================================================
     # En
     # ==================================================
-    def plot_En(self, data_dict, En_result):
+    def plot_En(self, data_dict: FileDict, En_result: FitResultList) -> None:
 
         data = SelectorType(self.config, data_dict).get_data()
         fit_function, _ = SelectorType(self.config, data_dict).get_model()
@@ -170,7 +168,7 @@ class MassPlotter:
     # ==================================================
     # Zn
     # ==================================================
-    def plot_Zn(self, En_result):
+    def plot_Zn(self, En_result: FitResultList) -> None:
         if not getattr(self.config, "is_meson_analysis", False):
             return
 
@@ -231,7 +229,7 @@ class MassPlotter:
     # ==================================================
     # dispersion
     # ==================================================
-    def plot_dispersion(self, En_result, disp_result):
+    def plot_dispersion(self, En_result: FitResultList, disp_result: FitResultList) -> None:
 
         if self.type_name != "meson":
             print("Plot dispersion relation only from meson En.")

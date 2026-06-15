@@ -4,6 +4,8 @@ import numpy as np
 import gvar as gv
 import matplotlib.pyplot as plt
 
+from input.config import Config
+
 
 class ScatteringPlotter:
 
@@ -20,7 +22,7 @@ class ScatteringPlotter:
         "brown",
     ]
 
-    def __init__(self, config):
+    def __init__(self, config: Config):
         self.config = config
         self.input_name = config.input_name
         self.tag_name = config.tag_name
@@ -33,7 +35,7 @@ class ScatteringPlotter:
     # ==================================================
     # Ks
     # ==================================================
-    def plot_Ks(self, results_dict):
+    def plot_Ks(self, results_dict: dict) -> None:
 
         if not getattr(self.config, "is_tetraquark_analysis", False):
             return
@@ -93,7 +95,7 @@ class ScatteringPlotter:
     # ==================================================
     # kcot
     # ==================================================
-    def plot_kcot(self, results_dict):
+    def plot_kcot(self, results_dict: dict) -> None:
         if not getattr(self.config, "is_tetraquark_analysis", False):
             return
 

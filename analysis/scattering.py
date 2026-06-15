@@ -9,17 +9,18 @@ from collections import defaultdict
 from joblib import Parallel, delayed
 from statistics.resample import get_resampler
 from analysis.models import MathModels
+from input.config import Config
+from input.types import ResampleDataDict
 
 
 # ==================================================
 # Rest-frame single-channel analysis
 # ==================================================
-def run_scattering_analysis(config, resample_data_dict):
-    if not (
-        getattr(config, "run_scattering", False)
-        and getattr(config, "is_tetraquark_analysis", False)
-    ):
-        return
+def run_scattering_analysis(
+    config: Config, resample_data_dict: ResampleDataDict
+) -> dict | None:
+    if not (config.run_scattering and config.is_tetraquark_analysis):
+        return None
 
     # choose channel and momentum
     ch_meson_a = ch_meson_b = ch_tetraquark = 1
@@ -127,12 +128,12 @@ def run_scattering_analysis(config, resample_data_dict):
 # ==================================================
 # Helper functions
 # ==================================================
-def lambda_function(a, b, c):
+def lambda_function(a: float, b: float, c: float) -> float:
     """Källén function."""
     return a**2 + b**2 + c**2 - 2 * a * b - 2 * a * c - 2 * b * c
 
 
-def build_n_sq_array(lamda):
+def build_n_sq_array(lamda: int) -> np.ndarray:
     """Generate n^2 lattice grid with cutoff."""
     n_range = np.arange(-lamda - 1, lamda + 2)
     nx, ny, nz = np.meshgrid(n_range, n_range, n_range, indexing="ij")
@@ -143,7 +144,9 @@ def build_n_sq_array(lamda):
 # ==================================================
 # Rest-frame zeta
 # ==================================================
-def gen_zeta_00_rest_from_q_sq_array(q_sq_array, lamda, regen_flag=False):
+def gen_zeta_00_rest_from_q_sq_array(
+    q_sq_array: np.ndarray, lamda: int, regen_flag: bool = False
+) -> np.ndarray:
     """Compute rest-frame zeta function on q^2 grid."""
 
     save_path = "data/zeta/zeta_00_rest_array.npy"
@@ -169,7 +172,9 @@ def gen_zeta_00_rest_from_q_sq_array(q_sq_array, lamda, regen_flag=False):
     return zeta_00_array
 
 
-def gen_zeta_00_rest_from_q_sq(n_sq_array, q_sq, lamda):
+def gen_zeta_00_rest_from_q_sq(
+    n_sq_array: np.ndarray, q_sq: float, lamda: int
+) -> float:
     """Rest-frame zeta function for a single q^2."""
     Y_00 = 1.0 / np.sqrt(4.0 * np.pi)
 

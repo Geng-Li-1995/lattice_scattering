@@ -92,7 +92,7 @@ class Jackknife:
             )
         )
 
-    def gvar(self):
+    def gvar(self) -> tuple[np.ndarray, np.ndarray]:
         """
         Return mean and jackknife error of the original data.
 

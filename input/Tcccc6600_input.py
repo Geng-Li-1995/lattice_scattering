@@ -1,7 +1,9 @@
 # Tcccc6600_input.py
 
-from dataclasses import dataclass
-from typing import Dict, Tuple, ClassVar
+from dataclasses import dataclass, field
+from typing import Dict, ClassVar
+
+from input.types import EnsembleKey, EnsembleEntry, ScatteringList
 
 
 @dataclass
@@ -18,13 +20,13 @@ class InputControl:
 
     # Analysis options
     is_meson_analysis: bool = False
-    is_tetraquark_analysis: bool = not is_meson_analysis
+    is_tetraquark_analysis: bool = True
     is_gevp: bool = True
     is_svd: bool = False
     is_ratio: bool = False
 
     run_tmin: bool = False
-    run_resample: bool = False
+    run_resample: bool = False  # set by run_resample.py; suppresses plots during resampling
     run_scattering: bool = True
 
     plot_meff: bool = True
@@ -36,8 +38,15 @@ class InputControl:
 
     Ns_list: ClassVar[list[int]] = [12, 16]  # lattice sizes for scattering
 
+    scattering_list: ScatteringList = field(default_factory=list)
+
     def __post_init__(self):
         """Initialize lattice parameters based on lattice_Ns."""
+        if self.is_meson_analysis:
+            self.is_tetraquark_analysis = False
+        elif not self.is_tetraquark_analysis:
+            self.is_tetraquark_analysis = True
+
         self.lattice_Ns, self.lattice_Nt, self.pion_mass, self.num_eigenvectors = (
             self.get_lattice_params(self.lattice_Ns)
         )
@@ -45,7 +54,7 @@ class InputControl:
         self.scattering_list = [self.get_lattice_params(ns) for ns in self.Ns_list]
 
     @staticmethod
-    def get_lattice_params(lattice_Ns: int) -> tuple[int, int, int, int]:
+    def get_lattice_params(lattice_Ns: int) -> EnsembleKey:
         """Return (lattice_Ns, lattice_Nt, pion_mass, num_eigenvectors) for a given lattice_Ns."""
         match lattice_Ns:
             case 12:
@@ -55,7 +64,7 @@ class InputControl:
             case _:
                 raise ValueError(f"Unknown lattice_Ns={lattice_Ns}")
 
-    def ensemble_key(self) -> tuple[int, int, int, int]:
+    def ensemble_key(self) -> EnsembleKey:
         """Map configuration → ENSEMBLE_DB key."""
         return (self.lattice_Ns, self.lattice_Nt, self.pion_mass, self.num_eigenvectors)
 
@@ -71,7 +80,7 @@ class InputControl:
 # ======================================================
 # 1. ENSEMBLE_DB (UNCHANGED - FULL DATA PRESERVED)
 # ======================================================
-ENSEMBLE_DB: Dict[Tuple[int, int, int, int], Dict] = {
+ENSEMBLE_DB: Dict[EnsembleKey, EnsembleEntry] = {
     # ======================================================
     # Ensemble: (12, 96, 420, 170)
     # ======================================================

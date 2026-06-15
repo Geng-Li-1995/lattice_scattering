@@ -5,6 +5,8 @@ from typing import List, Tuple
 import importlib
 import numpy as np
 
+from input.types import EnsembleKey, ScatteringList
+
 
 # ===============================
 # Output Config used in analysis
@@ -15,8 +17,8 @@ class Config:
     chan_momt_list: List[List[int]]
     chan_name_list: List[str]
 
-    ensemble_key: Tuple[int, int, int, int]
-    scattering_list: List[int]
+    ensemble_key: EnsembleKey
+    scattering_list: ScatteringList
     tag_name: str
     lattice_Nt: int
     at_invs: float
