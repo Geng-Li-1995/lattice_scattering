@@ -1,42 +1,41 @@
-# main.py
-
 from input.config import BuildConfig
 from data.io import read_file
 from analysis.fitting import RunFitting
-from plotting.plot_mass import MassPlotter
-from plotting.plot_scattering import ScatteringPlotter
 from analysis.gevp import process_GEVP
 from analysis.scattering import run_scattering_analysis
+from plotting.plot_gevp import GEVPPlotter
+from plotting.plot_mass import MassPlotter
+from plotting.plot_scattering import ScatteringPlotter
 
 
 def main() -> None:
-
-    # build config from input/name.py, e.g. input/Tcccc6600_input.py
     config = BuildConfig("Tcccc6600").build_config_from_control()
+    raw_dict, resampled_dict = read_file(config)
 
-    # read file from data/name.npy, e.g. Tcccc6600/meson_L16M420_EV120.npy
-    file_dict, resample_data_dict = read_file(config)
+    corr_dict, gevp_plot_data = process_GEVP(config, raw_dict)
+    if gevp_plot_data is not None:
+        GEVPPlotter(config).plot_GEVP(
+            gevp_plot_data.matrix_before,
+            gevp_plot_data.matrix_after,
+            gevp_plot_data.eigenvectors,
+        )
 
-    # process/plot GEVP from tetraquark data
-    data_dict = process_GEVP(config, file_dict)
+    fitter = RunFitting(config)
+    plotter = MassPlotter(config)
 
-    # fit/plot En and weights Zn/Z0 from data
-    En_result_dict = RunFitting(config).effective_mass(data_dict)
-    MassPlotter(config).plot_En(data_dict, En_result_dict)
-    MassPlotter(config).plot_Zn(En_result_dict)
+    en_fit_list = fitter.effective_mass(corr_dict)
+    plotter.plot_En(corr_dict, en_fit_list)
+    plotter.plot_Zn(en_fit_list)
 
-    # fit/plot dispersion relation from En
-    disp_result = RunFitting(config).dispersion(En_result_dict)
-    MassPlotter(config).plot_dispersion(En_result_dict, disp_result)
+    disp_fit_list = fitter.dispersion(en_fit_list)
+    plotter.plot_dispersion(en_fit_list, disp_fit_list)
 
-    # run and plot scattering analysis
-    scattering_results_dict = run_scattering_analysis(config, resample_data_dict)
-    if scattering_results_dict is not None:
-        scattering_plotter = ScatteringPlotter(config)
-        scattering_plotter.plot_Ks(scattering_results_dict)
-        scattering_plotter.plot_kcot(scattering_results_dict)
+    scattering_dict = run_scattering_analysis(config, resampled_dict)
+    if scattering_dict is not None:
+        scat_plotter = ScatteringPlotter(config)
+        scat_plotter.plot_Ks(scattering_dict)
+        scat_plotter.plot_kcot(scattering_dict)
 
-    # finished
     print("Main task is finished!")
 
 

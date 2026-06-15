@@ -14,11 +14,10 @@ from statistics.resample import run_resample_statistics
 
 def main(system_name: str = "Tcccc6600") -> None:
     config = BuildConfig(system_name).build_config_from_control()
-    # Suppress GEVP / fit plots and verbose output during the resample loop
     config = replace(config, run_resample=True)
 
-    file_dict = read_raw_files(config)
-    run_resample_statistics(config, file_dict)
+    raw_dict = read_raw_files(config)
+    run_resample_statistics(config, raw_dict)
 
     print("Resample task is finished!")
 

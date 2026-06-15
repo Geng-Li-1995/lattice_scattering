@@ -1,7 +1,7 @@
 # config.py
 
 from dataclasses import dataclass
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 import importlib
 import numpy as np
 
@@ -48,6 +48,11 @@ class Config:
     resample_type: str
     sample_axis: int
     n_boot: int
+
+    ch_meson_a: int
+    ch_meson_b: int
+    ch_tetra: int
+    fit_mom_by_ns: Dict[int, List[int]]
 
 
 # ===============================
@@ -135,4 +140,8 @@ class BuildConfig:
             resample_type=ctrl.resample_type,
             sample_axis=ctrl.sample_axis,
             n_boot=ctrl.n_boot,
+            ch_meson_a=ctrl.ch_meson_a,
+            ch_meson_b=ctrl.ch_meson_b,
+            ch_tetra=ctrl.ch_tetra,
+            fit_mom_by_ns=ctrl.fit_mom_by_ns,
         )

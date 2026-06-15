@@ -1,7 +1,7 @@
 # Tcccc6600_input.py
 
 from dataclasses import dataclass, field
-from typing import Dict, ClassVar
+from typing import ClassVar, Dict, List
 
 from input.types import EnsembleKey, EnsembleEntry, ScatteringList
 
@@ -13,7 +13,7 @@ class InputControl:
     tetraquark_name: str = "Tcccc6600"
 
     # Lattice setup
-    lattice_Ns: int = 12  # Ns = 12, 16, 24
+    lattice_Ns: int = 16  # Ns = 12, 16, 24
     lattice_Nt: int = 0
     num_eigenvectors: int = 0
     pion_mass: int = 0
@@ -37,6 +37,14 @@ class InputControl:
     n_boot: int = 1000
 
     Ns_list: ClassVar[list[int]] = [12, 16]  # lattice sizes for scattering
+
+    # Scattering analysis: channel indices and fit momentum subsets per Ns
+    ch_meson_a: int = 1
+    ch_meson_b: int = 1
+    ch_tetra: int = 1
+    fit_mom_by_ns: Dict[int, List[int]] = field(
+        default_factory=lambda: {12: [0, 1, 2], 16: [0, 1]}
+    )
 
     scattering_list: ScatteringList = field(default_factory=list)
 

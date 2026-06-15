@@ -1,295 +1,169 @@
-# plot_mass.py
-
 import numpy as np
 import gvar as gv
 import lsqfit as lsf
 import matplotlib.pyplot as plt
 
+from analysis.models import MathModels
+from analysis.utils import disp_fit_lookup, en_fit_lookup
 from input.config import Config
 from input.selector import SelectorType
 from input.types import FileDict, FitResultList
-from analysis.models import MathModels
+from plotting.plot_set import (
+    COLORS,
+    ERRORBAR_KW,
+    FIG_STANDARD,
+    FIG_WIDE,
+    FIT_CURVE_ALPHA,
+    LINESTYLES,
+    MARKERS,
+    add_legend,
+    apply_plot_style,
+    label_axes,
+    new_figure,
+    save_figure,
+)
 from statistics.resample import get_resampler
 
 
 class MassPlotter:
 
-    COLORS = [
-        "blue",
-        "red",
-        "green",
-        "violet",
-        "orange",
-        "black",
-        "cyan",
-        "navy",
-        "yellow",
-        "brown",
-    ]
-
-    LINESTYLES = [
-        "-",
-        "--",
-        ":",
-        "-.",
-        (0, (1, 1)),
-        (0, (5, 2)),
-        (0, (3, 1, 1, 1)),
-        (0, (5, 5)),
-        (0, (2, 2)),
-        (0, (1, 2)),
-    ]
-
-    MARKERS = ["o", "x", "s", "^", "v", "<", ">", "*", "D", "p"]
-
     def __init__(self, config: Config):
-
-        plt.rcParams.update(
-            {
-                "text.usetex": True,
-                "font.family": "serif",
-                "font.serif": ["Times New Roman"],
-            }
-        )
-
+        apply_plot_style()
         self.config = config
         self.input_name = config.input_name
         self.tag_name = config.tag_name
         self.at_invs = config.at_invs
         self.lattice_Nt = config.lattice_Nt
-
         self.chan_momt_list = config.chan_momt_list
         self.chan_name_list = config.chan_name_list
+        self.corr_type = "tetraquark" if config.is_tetraquark_analysis else "meson"
 
-        self.type_name = "tetraquark" if config.is_tetraquark_analysis else "meson"
+    def _cosh_with_error(self, corr_1d: np.ndarray):
+        jack_samples = get_resampler(self.config, corr_1d).resample()
+        cosh_samples = MathModels.generate_cosh_from_data(jack_samples, time_axis=0)
+        return get_resampler(self.config, cosh_samples).gvar()
 
-    # ==================================================
-    # helpers
-    # ==================================================
-    def _build_En_lookup(self, En_result):
-        return {(r["channel"], r["mom"]): r["fit"] for r in En_result}
+    def _save(self, name: str) -> None:
+        save_figure(f"result/{self.input_name}/{name}_{self.corr_type}_{self.tag_name}.pdf")
 
-    def _cosh_resample(self, data):
-        r = get_resampler(self.config, data).resample()
-        c = MathModels.generate_cosh_from_data(r, time_axis=0)
-        mean, err = get_resampler(self.config, c).gvar()
-        return mean, err, c
+    def plot_En(self, corr_dict: FileDict, en_fit_list: FitResultList) -> None:
+        selector = SelectorType(self.config, corr_dict)
+        corr = selector.get_data()
+        model_fn, _ = selector.get_model()
+        en_lookup = en_fit_lookup(en_fit_list)
 
-    def _save(self, name):
-        plt.tight_layout()
-        plt.savefig(
-            f"result/{self.input_name}/{name}_{self.type_name}_{self.tag_name}.pdf"
-        )
-        plt.show()
-
-    # ==================================================
-    # En
-    # ==================================================
-    def plot_En(self, data_dict: FileDict, En_result: FitResultList) -> None:
-
-        data = SelectorType(self.config, data_dict).get_data()
-        fit_function, _ = SelectorType(self.config, data_dict).get_model()
-
-        En_lookup = self._build_En_lookup(En_result)
-
-        ylim_min = 1.0 if self.type_name == "tetraquark" else 0.1
-
-        Ens = {}
-        plt.figure(figsize=(13, 8))
+        ylim_min = 1.0 if self.corr_type == "tetraquark" else 0.1
+        en_by_ch: dict[int, list] = {}
+        new_figure(FIG_WIDE)
 
         for ch_idx, mom_list in enumerate(self.chan_momt_list):
-
-            Ens[ch_idx] = []
-
+            en_by_ch[ch_idx] = []
             for mom in mom_list:
-
-                mean, err, _ = self._cosh_resample(data[ch_idx][mom])
-
+                mean, err = self._cosh_with_error(corr[ch_idx][mom])
                 plt.errorbar(
                     np.arange(self.lattice_Nt),
                     mean * self.at_invs,
                     err * self.at_invs,
-                    fmt=self.MARKERS[ch_idx],
-                    color=self.COLORS[mom],
-                    markersize=4,
-                    capsize=3,
-                    linewidth=1.5,
-                    capthick=1,
-                    markeredgecolor="black",
-                    markerfacecolor="white",
-                    label=f"${self.chan_name_list[ch_idx]}(n^2={mom})$",
+                    fmt=MARKERS[ch_idx],
+                    color=COLORS[mom],
+                    label=rf"${self.chan_name_list[ch_idx]}(n^2={mom})$",
+                    **ERRORBAR_KW,
                 )
 
-                fit = En_lookup[(ch_idx, mom)]
+                mass_fit = en_lookup[(ch_idx, mom)]
+                t_min = self.config.t_min[ch_idx][mom]
+                t_max = self.config.t_max[ch_idx][mom]
+                t_fit = np.arange(t_min, t_max)
 
-                tmin, tmax = (
-                    self.config.t_min[ch_idx][mom],
-                    self.config.t_max[ch_idx][mom],
+                cosh_fit = MathModels.generate_cosh_from_data(
+                    model_fn(t_fit, mass_fit.p, self.lattice_Nt), time_axis=0
                 )
-                t_fit = np.arange(tmin, tmax)
-
-                result_fit = fit_function(t_fit, fit.p, self.lattice_Nt)
-                cosh_fit = MathModels.generate_cosh_from_data(result_fit, time_axis=0)
-
                 m = gv.mean(cosh_fit) * self.at_invs
                 s = gv.sdev(cosh_fit) * self.at_invs
+                plt.plot(t_fit, m, linestyle=LINESTYLES[ch_idx], color=COLORS[mom])
+                plt.fill_between(t_fit, m - s, m + s, color=COLORS[mom], alpha=0.2)
+                en_by_ch[ch_idx].append(mass_fit.p["meff_0"] * self.at_invs)
 
-                plt.plot(
-                    t_fit,
-                    m,
-                    linestyle=self.LINESTYLES[ch_idx],
-                    color=self.COLORS[mom],
-                )
-                plt.fill_between(
-                    t_fit,
-                    m - s,
-                    m + s,
-                    color=self.COLORS[mom],
-                    alpha=0.2,
-                )
-
-                Ens[ch_idx].append(fit.p["meff_0"] * self.at_invs)
-
-        all_ens = np.concatenate([np.array(v) for v in Ens.values()])
-
-        plt.xlabel(r"$t/a_t$", fontsize=25)
-        plt.ylabel(rf"$E_n$ (GeV) on {self.tag_name}", fontsize=25)
-
+        all_en = np.concatenate([np.array(vals) for vals in en_by_ch.values()])
+        label_axes(r"$t/a_t$", rf"$E_n$ (GeV) on {self.tag_name}")
         plt.xlim(1, self.lattice_Nt - 1)
-        plt.ylim(gv.mean(np.min(all_ens)) - ylim_min, gv.mean(np.max(all_ens)) + 0.2)
-
-        plt.xticks(fontsize=20)
-        plt.yticks(fontsize=20)
-
-        plt.legend(loc="lower right", fontsize=20, ncol=2)
-
+        plt.ylim(gv.mean(np.min(all_en)) - ylim_min, gv.mean(np.max(all_en)) + 0.2)
+        add_legend("lower right", ncol=2)
         self._save("En")
 
-    # ==================================================
-    # Zn
-    # ==================================================
-    def plot_Zn(self, En_result: FitResultList) -> None:
-        if not getattr(self.config, "is_meson_analysis", False):
+    def plot_Zn(self, en_fit_list: FitResultList) -> None:
+        if not self.config.is_meson_analysis:
             return
 
-        En_lookup = self._build_En_lookup(En_result)
-        mom_max = max(max(m) for m in self.chan_momt_list if m)
-
-        plt.figure(figsize=(8, 5))
+        en_lookup = en_fit_lookup(en_fit_list)
+        mom_max = max(max(moms) for moms in self.chan_momt_list if moms)
+        new_figure(FIG_STANDARD)
 
         for ch_idx, mom_list in enumerate(self.chan_momt_list):
-
-            fit0 = En_lookup[(ch_idx, mom_list[0])]
-            Zns = []
-
+            ref_weff = en_lookup[(ch_idx, mom_list[0])].p["weff_0"]
+            zn_list = []
             for mom in mom_list:
-                fit = En_lookup[(ch_idx, mom)]
-                Zn = fit.p["weff_0"] / fit0.p["weff_0"]
-                Zns.append(Zn)
-
+                zn = en_lookup[(ch_idx, mom)].p["weff_0"] / ref_weff
+                zn_list.append(zn)
                 plt.errorbar(
-                    mom,
-                    gv.mean(Zn),
-                    gv.sdev(Zn),
-                    fmt=self.MARKERS[ch_idx],
-                    color=self.COLORS[ch_idx],
-                    markersize=4,
-                    capsize=3,
-                    linewidth=1.5,
-                    capthick=1,
-                    markeredgecolor="black",
-                    markerfacecolor="white",
+                    mom, gv.mean(zn), gv.sdev(zn),
+                    fmt=MARKERS[ch_idx], color=COLORS[ch_idx], **ERRORBAR_KW,
                 )
 
-            fit_exp = lsf.nonlinear_fit(
-                data=(np.array(mom_list), np.array(Zns)),
+            zn_fit = lsf.nonlinear_fit(
+                data=(np.array(mom_list), np.array(zn_list)),
                 fcn=MathModels.exponential,
                 prior=MathModels.prior_exponential(),
             )
-
             x = np.linspace(0, mom_max, 100)
-            plt.plot(
-                x,
-                gv.mean(MathModels.exponential(x, fit_exp.p)),
-                linestyle=self.LINESTYLES[ch_idx],
-                color=self.COLORS[ch_idx],
-            )
+            y_fit = MathModels.exponential(x, zn_fit.p)
+            m = gv.mean(y_fit)
+            s = gv.sdev(y_fit)
+            color = COLORS[ch_idx]
+            plt.plot(x, m, linestyle=LINESTYLES[ch_idx], color=color)
+            plt.fill_between(x, m - s, m + s, color=color, alpha=FIT_CURVE_ALPHA)
 
-        plt.xlabel(r"$n^2$", fontsize=20)
-        plt.ylabel(rf"$Z_n/Z_0$ on {self.tag_name}", fontsize=20)
-
-        plt.xticks(fontsize=15)
-        plt.yticks(fontsize=15)
-
+        label_axes(r"$n^2$", rf"$Z_n/Z_0$ on {self.tag_name}")
         plt.xlim(0, mom_max)
         plt.ylim(0, 1)
-
         self._save("Zn")
 
-    # ==================================================
-    # dispersion
-    # ==================================================
-    def plot_dispersion(self, En_result: FitResultList, disp_result: FitResultList) -> None:
-
-        if self.type_name != "meson":
+    def plot_dispersion(
+        self, en_fit_list: FitResultList, disp_fit_list: FitResultList
+    ) -> None:
+        if self.corr_type != "meson":
             print("Plot dispersion relation only from meson En.")
             return
 
-        En_lookup = self._build_En_lookup(En_result)
-        disp_lookup = {r["channel"]: r["fit"] for r in disp_result}
+        en_lookup = en_fit_lookup(en_fit_list)
+        disp_lookup = disp_fit_lookup(disp_fit_list)
+        mom_max = max(max(moms) for moms in self.chan_momt_list if moms)
+        en_sq_by_ch: dict[int, list] = {}
 
-        mom_max = max(max(m) for m in self.chan_momt_list if m)
-
-        Ens_sq = {}
-
-        plt.figure(figsize=(8, 5))
-
+        new_figure(FIG_STANDARD)
         for ch_idx, mom_list in enumerate(self.chan_momt_list):
-
-            Ens_sq[ch_idx] = []
-
-            for mom in mom_list:
-                En = En_lookup[(ch_idx, mom)].p["meff_0"] * self.at_invs
-                Ens_sq[ch_idx].append(En**2)
-
-            disp_fit = disp_lookup[ch_idx]
-
-            y = gv.mean(Ens_sq[ch_idx])
-            yerr = gv.sdev(Ens_sq[ch_idx])
-
+            en_sq_by_ch[ch_idx] = [
+                (en_lookup[(ch_idx, mom)].p["meff_0"] * self.at_invs) ** 2
+                for mom in mom_list
+            ]
+            y, yerr = gv.mean(en_sq_by_ch[ch_idx]), gv.sdev(en_sq_by_ch[ch_idx])
             plt.errorbar(
-                mom_list,
-                y,
-                yerr,
-                fmt=self.MARKERS[ch_idx],
-                color=self.COLORS[ch_idx],
-                markersize=4,
-                capsize=3,
-                linewidth=1.5,
-                capthick=1,
-                label=f"${self.chan_name_list[ch_idx]}$",
-                markeredgecolor="black",
-                markerfacecolor="white",
+                mom_list, y, yerr,
+                fmt=MARKERS[ch_idx], color=COLORS[ch_idx],
+                label=rf"${self.chan_name_list[ch_idx]}$",
+                **ERRORBAR_KW,
             )
-
             x = np.linspace(0, mom_max, 100)
-            plt.plot(
-                x,
-                gv.mean(MathModels.linear(x, disp_fit.p)),
-                linestyle=self.LINESTYLES[ch_idx],
-                color=self.COLORS[ch_idx],
-            )
+            y_fit = MathModels.linear(x, disp_lookup[ch_idx].p)
+            m = gv.mean(y_fit)
+            s = gv.sdev(y_fit)
+            color = COLORS[ch_idx]
+            plt.plot(x, m, linestyle=LINESTYLES[ch_idx], color=color)
+            plt.fill_between(x, m - s, m + s, color=color, alpha=FIT_CURVE_ALPHA)
 
-        plt.xlabel(r"$n^2$", fontsize=20)
-        plt.ylabel(rf"$E_n^2$ (GeV$^2$) on {self.tag_name}", fontsize=20)
-
+        label_axes(r"$n^2$", rf"$E_n^2$ (GeV$^2$) on {self.tag_name}")
         plt.xlim(0, mom_max)
-        all_vals = np.concatenate([gv.mean(v) for v in Ens_sq.values()])
+        all_vals = np.concatenate([gv.mean(v) for v in en_sq_by_ch.values()])
         plt.ylim(np.min(all_vals), np.max(all_vals))
-
-        plt.xticks(fontsize=15)
-        plt.yticks(fontsize=15)
-
-        plt.legend(loc="upper left", fontsize=20)
-
+        add_legend("upper left")
         self._save("Dispersion")

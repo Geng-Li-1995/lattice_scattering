@@ -1,178 +1,85 @@
-# plot_scattering.py
-
-import numpy as np
-import gvar as gv
 import matplotlib.pyplot as plt
 
 from input.config import Config
+from plotting.plot_set import (
+    COLORS,
+    ERRORBAR_KW,
+    FIG_STANDARD,
+    add_legend,
+    apply_plot_style,
+    label_axes,
+    new_figure,
+    plot_gvar_band,
+    save_figure,
+)
 
 
 class ScatteringPlotter:
 
-    COLORS = [
-        "blue",
-        "red",
-        "green",
-        "violet",
-        "orange",
-        "black",
-        "cyan",
-        "navy",
-        "yellow",
-        "brown",
-    ]
-
     def __init__(self, config: Config):
+        apply_plot_style()
         self.config = config
         self.input_name = config.input_name
         self.tag_name = config.tag_name
 
-    def _save(self, name):
-        plt.tight_layout()
-        plt.savefig(f"result/{self.input_name}/{name}_scattering_{self.tag_name}.pdf")
-        plt.show()
+    def _save(self, name: str) -> None:
+        save_figure(f"result/{self.input_name}/{name}_scattering_{self.tag_name}.pdf")
 
-    # ==================================================
-    # Ks
-    # ==================================================
-    def plot_Ks(self, results_dict: dict) -> None:
-
-        if not getattr(self.config, "is_tetraquark_analysis", False):
+    def plot_Ks(self, scattering_dict: dict) -> None:
+        if not self.config.is_tetraquark_analysis:
             return
 
-        plt.figure(figsize=(8, 6))
-
-        for idx, scattering in enumerate(self.config.scattering_list):
-            Ns = scattering[0]
+        new_figure(FIG_STANDARD)
+        for ensemble_idx, ensemble_key in enumerate(self.config.scattering_list):
+            ns = ensemble_key[0]
+            color = COLORS[ensemble_idx]
+            s_pts, ks_pts = scattering_dict["s"][ns], scattering_dict["Ks"][ns]
 
             plt.errorbar(
-                results_dict["s"][Ns][:, 0],
-                results_dict["Ks"][Ns][:, 0],
-                xerr=results_dict["s"][Ns][:, 1],
-                yerr=results_dict["Ks"][Ns][:, 1],
-                fmt="x",
-                color=self.COLORS[idx],
-                markersize=4,
-                capsize=3,
-                linewidth=1.5,
-                capthick=1,
-                label=f"L{Ns}",
-                markeredgecolor="black",
-                markerfacecolor="white",
+                s_pts[:, 0], ks_pts[:, 0],
+                xerr=s_pts[:, 1], yerr=ks_pts[:, 1],
+                fmt="x", color=color, label=f"L{ns}", **ERRORBAR_KW,
             )
-
-            if idx == 0:
-                plt.plot(
-                    results_dict["s_array"][Ns],
-                    gv.mean(results_dict["fit_Ks_curve"]),
-                    color="green",
-                    linestyle="-",
-                )
-
-                plt.fill_between(
-                    results_dict["s_array"][Ns],
-                    gv.mean(results_dict["fit_Ks_curve"])
-                    - gv.sdev(results_dict["fit_Ks_curve"]),
-                    gv.mean(results_dict["fit_Ks_curve"])
-                    + gv.sdev(results_dict["fit_Ks_curve"]),
-                    color="green",
-                    alpha=0.2,
-                )
+            if ensemble_idx == 0:
+                plot_gvar_band(scattering_dict["s_array"][ns], scattering_dict["fit_Ks_curve"])
 
         plt.axhline(0, color="black")
         plt.axvline(0, color="black")
-
         plt.xlim(37, 45)
         plt.ylim(-9, 6)
-
-        plt.xlabel(r"$s\,(\rm{GeV}^2)$", fontsize=20)
-        plt.ylabel(r"$K(s)=\sqrt s / (k\cot\delta_0)$", fontsize=20)
-
-        plt.legend(loc="upper left", fontsize=20)
-
+        label_axes(r"$s\,(\rm{GeV}^2)$", r"$K(s)=\sqrt s / (k\cot\delta_0)$")
+        add_legend("upper left")
         self._save("K_s")
 
-    # ==================================================
-    # kcot
-    # ==================================================
-    def plot_kcot(self, results_dict: dict) -> None:
-        if not getattr(self.config, "is_tetraquark_analysis", False):
+    def plot_kcot(self, scattering_dict: dict) -> None:
+        if not self.config.is_tetraquark_analysis:
             return
 
-        plt.figure(figsize=(8, 6))
+        new_figure(FIG_STANDARD)
+        for ensemble_idx, ensemble_key in enumerate(self.config.scattering_list):
+            ns = ensemble_key[0]
+            color = COLORS[ensemble_idx]
+            k_sq_grid = scattering_dict["k_sq_array"][ns]
+            kcot_rest_grid = scattering_dict["kcot_rest_array"][ns]
+            k_sq_mean = scattering_dict["k_sq"][ns][:, 0]
+            k_sq_err = scattering_dict["k_sq"][ns][:, 1]
 
-        for idx, scattering in enumerate(self.config.scattering_list):
-            Ns = scattering[0]
-
-            k_sq_array = results_dict["k_sq_array"][Ns]
-            kcot_rest_array = results_dict["kcot_rest_array"][Ns]
-
-            plt.plot(
-                k_sq_array,
-                kcot_rest_array,
-                color=self.COLORS[idx],
-                linestyle="--",
-                alpha=0.3,
-            )
-
-            k_sq_mean = results_dict["k_sq"][Ns][:, 0]
-            k_sq_error = results_dict["k_sq"][Ns][:, 1]
-            kcot_mean = results_dict["kcot"][Ns][:, 0]
-            kcot_error = results_dict["kcot"][Ns][:, 1]
-
-            mask = np.zeros_like(k_sq_array, dtype=bool)
-
-            for m, e in zip(k_sq_mean, k_sq_error):
-                mask = (k_sq_array >= m - e) & (k_sq_array <= m + e)
-                plt.plot(
-                    k_sq_array[mask],
-                    kcot_rest_array[mask],
-                    color=self.COLORS[idx],
-                    linestyle="-",
-                )
+            plt.plot(k_sq_grid, kcot_rest_grid, color=color, linestyle="--", alpha=0.3)
+            for m, e in zip(k_sq_mean, k_sq_err):
+                mask = (k_sq_grid >= m - e) & (k_sq_grid <= m + e)
+                plt.plot(k_sq_grid[mask], kcot_rest_grid[mask], color=color, linestyle="-")
 
             plt.errorbar(
-                k_sq_mean,
-                kcot_mean,
-                xerr=k_sq_error,
-                fmt="x",
-                color=self.COLORS[idx],
-                markersize=4,
-                capsize=3,
-                linewidth=1.5,
-                capthick=1,
-                label=f"L{Ns}",
-                markeredgecolor="black",
-                markerfacecolor="white",
+                k_sq_mean, scattering_dict["kcot"][ns][:, 0], xerr=k_sq_err,
+                fmt="x", color=color, label=f"L{ns}", **ERRORBAR_KW,
             )
-
-            if idx == 0:
-                plt.plot(
-                    k_sq_array,
-                    gv.mean(results_dict["fit_kcot_curve"]),
-                    color="green",
-                    linestyle="-",
-                )
-
-                plt.fill_between(
-                    k_sq_array,
-                    gv.mean(results_dict["fit_kcot_curve"])
-                    - gv.sdev(results_dict["fit_kcot_curve"]),
-                    gv.mean(results_dict["fit_kcot_curve"])
-                    + gv.sdev(results_dict["fit_kcot_curve"]),
-                    color="green",
-                    alpha=0.2,
-                )
+            if ensemble_idx == 0:
+                plot_gvar_band(k_sq_grid, scattering_dict["fit_kcot_curve"])
 
         plt.axhline(0, color="black")
         plt.axvline(0, color="black")
-
         plt.xlim(-0.25, 1.75)
         plt.ylim(-15, 15)
-
-        plt.xlabel(r"$k^2\,(\rm{GeV}^2)$", fontsize=20)
-        plt.ylabel(r"$k\cot\delta_0\,$(GeV)", fontsize=20)
-
-        plt.legend(loc="upper left", fontsize=20)
-
+        label_axes(r"$k^2\,(\rm{GeV}^2)$", r"$k\cot\delta_0\,$(GeV)")
+        add_legend("upper left")
         self._save("kcot")

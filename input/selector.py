@@ -1,53 +1,27 @@
-# selector.py
-
 from input.config import Config
 from input.types import CorrelatorArray, FileDict, ModelFn, PriorFn
 from analysis.models import MODEL_REGISTRY
 
 
 class SelectorType:
-    """
-    Unified interface for:
-    - Selecting data (meson / tetraquark)
-    - Selecting model and prior
-    """
+    """Select correlator data and fitting model from config."""
 
-    def __init__(self, config: Config, data: FileDict):
+    def __init__(self, config: Config, corr_dict: FileDict):
         self.config = config
-        self.data = data
+        self.corr_dict = corr_dict
 
-    # ======================================================
-    # 0. Data selection
-    # ======================================================
     def get_data(self) -> CorrelatorArray:
-        """Return correlator array [channel, momentum, time, sample]."""
-
         if self.config.is_meson_analysis:
-            return self.data["meson"]
-
+            return self.corr_dict["meson"]
         if self.config.is_tetraquark_analysis:
-            return self.data["tetraquark"]
-
+            return self.corr_dict["tetraquark"]
         raise ValueError("No valid analysis type selected in config")
 
-    # ======================================================
-    # 1. Model selection
-    # ======================================================
     def get_model(self) -> tuple[ModelFn, PriorFn]:
-        """Return the fitting function and prior based on config."""
         if self.config.is_ratio:
-            function = MODEL_REGISTRY["ratio"]["fn"]
-            prior = MODEL_REGISTRY["ratio"]["prior"]
-            return function, prior
+            return MODEL_REGISTRY["ratio"]["fn"], MODEL_REGISTRY["ratio"]["prior"]
 
-        n_state = self.config.n_state
-        if n_state == 2:
-            function = MODEL_REGISTRY["two_states"]["fn"]
-            prior = MODEL_REGISTRY["two_states"]["prior"]
-            return function, prior
-        elif n_state == 3:
-            function = MODEL_REGISTRY["three_states"]["fn"]
-            prior = MODEL_REGISTRY["three_states"]["prior"]
-            return function, prior
-
-        raise ValueError(f"Unsupported n_state={n_state}")
+        key = {2: "two_states", 3: "three_states"}.get(self.config.n_state)
+        if key is None:
+            raise ValueError(f"Unsupported n_state={self.config.n_state}")
+        return MODEL_REGISTRY[key]["fn"], MODEL_REGISTRY[key]["prior"]

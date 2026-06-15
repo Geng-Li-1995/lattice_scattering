@@ -1,194 +1,131 @@
-# gevp.py
+from dataclasses import dataclass
 
 import numpy as np
 from scipy import linalg
-from plotting.plot_gevp import GEVPPlotter
 
+from analysis.utils import fve_offsets
 from input.config import Config
 from input.types import FileDict
 
 
-def process_GEVP(config: Config, file_dict: FileDict) -> FileDict:
+@dataclass
+class GEVPPlotData:
+    matrix_before: np.ndarray
+    matrix_after: np.ndarray
+    eigenvectors: np.ndarray
+
+
+def process_GEVP(
+    config: Config, raw_dict: FileDict
+) -> tuple[FileDict, GEVPPlotData | None]:
     """
-    Reshape tetraquark data from
-    [channel_src, momentum_src, channel_snk, momentum_snk, time, sample]
-    to
-    [nop_src, nop_snk, time, sample]
-    by selecting source and sink operators in chan_momt_list.
-
-    Also used for visualizing correlation matrices before/after GEVP.
-
-    Return:
-        data_after_GEVP [channel, momentum, time, sample],
-        where source and sink operators are identified (src = snk).
+    Build FVE matrix from tetraquark correlators, optionally solve GEVP,
+    and return correlators as [channel, momentum, time, sample].
     """
-    # -----------------------------
-    # 0. Meson data unchanged
-    # -----------------------------
-    data_dict = {key: file_dict[key] for key in file_dict}
+    corr_dict = dict(raw_dict)
 
-    if not getattr(config, "is_tetraquark_analysis", False):
-        return data_dict
+    if not config.is_tetraquark_analysis:
+        return corr_dict, None
 
-    # -----------------------------
-    # 1. Process tetraquark data
-    # -----------------------------
-    # Select source and sink channels/momenta
-    data = file_dict["tetraquark"]
+    tetra_raw = raw_dict["tetraquark"]
     chan_momt_list = config.chan_momt_list
-    n_chan = len(chan_momt_list)
-    n_mom_perchannel = [len(x) for x in chan_momt_list]
-    n_fve = sum(n_mom_perchannel)
-    matrix_before_GEVP = np.zeros((n_fve, n_fve, data.shape[-2], data.shape[-1]))
-    for ch_idx_src, mom_list_src in enumerate(chan_momt_list):
+    n_mom_per_ch = [len(moms) for moms in chan_momt_list]
+    n_fve = sum(n_mom_per_ch)
+    offsets = fve_offsets(n_mom_per_ch)
+
+    matrix_before_gevp = np.zeros(
+        (n_fve, n_fve, tetra_raw.shape[-2], tetra_raw.shape[-1])
+    )
+    for ch_src, mom_list_src in enumerate(chan_momt_list):
         for mom_idx_src, mom_src in enumerate(mom_list_src):
-            for ch_idx_snk, mom_list_snk in enumerate(chan_momt_list):
+            for ch_snk, mom_list_snk in enumerate(chan_momt_list):
                 for mom_idx_snk, mom_snk in enumerate(mom_list_snk):
-                    # fill available GEVP diagonal element
-                    matrix_before_GEVP[
-                        sum(n_mom_perchannel[:ch_idx_src]) + mom_idx_src,
-                        sum(n_mom_perchannel[:ch_idx_snk]) + mom_idx_snk,
-                    ] = data[ch_idx_src, mom_src, ch_idx_snk, mom_snk]
+                    fve_src = offsets[ch_src] + mom_idx_src
+                    fve_snk = offsets[ch_snk] + mom_idx_snk
+                    matrix_before_gevp[fve_src, fve_snk] = tetra_raw[
+                        ch_src, mom_src, ch_snk, mom_snk
+                    ]
 
-    print("matrix_before_GEVP.shape is:", matrix_before_GEVP.shape)
+    print("matrix_before_gevp.shape:", matrix_before_gevp.shape)
 
-    # Decide whether to perform GEVP and plot the matrix.
-    # matrix_after_GEVP has shape: (nop_src, nop_snk, time, sample)
-    sorted_eigenvectors = None
-    if getattr(config, "is_gevp", False):
-        matrix_after_GEVP, eigenvalues, sorted_eigenvectors = solve_GEVP(
-            config, matrix_before_GEVP
-        )
+    gevp_plot_data = None
+    if config.is_gevp:
+        matrix_after_gevp, _, eigenvectors = solve_GEVP(config, matrix_before_gevp)
+        gevp_plot_data = GEVPPlotData(matrix_before_gevp, matrix_after_gevp, eigenvectors)
     else:
-        matrix_after_GEVP = matrix_before_GEVP
+        matrix_after_gevp = matrix_before_gevp
 
-    if (
-        not getattr(config, "run_resample", False)
-        and getattr(config, "is_gevp", False)
-        and sorted_eigenvectors is not None
-    ):
-        GEVPPlotter(config).plot_GEVP(
-            matrix_before_GEVP, matrix_after_GEVP, sorted_eigenvectors
-        )
-
-    # Extract diagonal shape -> (time, sample, n_fves)
-    diag_data = np.diagonal(matrix_after_GEVP, axis1=0, axis2=1)
-
-    # Prepare output shape -> (channel, momentum, time, sample)
-    data_after_GEVP = np.zeros(
-        (n_chan, np.max(n_mom_perchannel), diag_data.shape[0], diag_data.shape[1])
+    diag = np.diagonal(matrix_after_gevp, axis1=0, axis2=1)
+    corr_after_gevp = np.zeros(
+        (len(chan_momt_list), max(n_mom_per_ch), diag.shape[0], diag.shape[1])
     )
 
     fve_idx = 0
     for ch_idx, mom_list in enumerate(chan_momt_list):
-        for mom_idx, mom in enumerate(mom_list):
-            # fill available GEVP diagonal element
-            data_after_GEVP[ch_idx, mom] = diag_data[:, :, fve_idx]
+        for mom in mom_list:
+            corr_after_gevp[ch_idx, mom] = diag[:, :, fve_idx]
             fve_idx += 1
 
-    data_dict["tetraquark"] = data_after_GEVP
-
-    print("data_after_GEVP.shape is:", data_after_GEVP.shape)
-
-    return data_dict
+    corr_dict["tetraquark"] = corr_after_gevp
+    print("corr_after_gevp.shape:", corr_after_gevp.shape)
+    return corr_dict, gevp_plot_data
 
 
-def solve_GEVP(config: Config, matrix: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """
-    Solve GEVP:
-        C(t) v_n = lambda_n C(t0) v_n
-
-    Returns
-    -------
-    ndarray
-        Rotated correlator matrix.
-    """
+def solve_GEVP(
+    config: Config, matrix_before_gevp: np.ndarray
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Solve C(t1) v = lambda C(t0) v and rotate the correlator matrix."""
     sample_axis = config.sample_axis
-    t0, t1, tx = config.t_GEVP
+    t0, t1, _ = config.t_GEVP
 
     eigenvalues, eigenvectors = linalg.eig(
-        a=matrix[:, :, t1, :].mean(sample_axis),
-        b=matrix[:, :, t0, :].mean(sample_axis),
+        a=matrix_before_gevp[:, :, t1, :].mean(sample_axis),
+        b=matrix_before_gevp[:, :, t0, :].mean(sample_axis),
         right=True,
     )
+    eigenvectors, _ = greedy_sort_eigenvectors(eigenvectors)
 
-    # Sort columns by their maximum absolute value (largest first)
-
-    # sorted_eigenvectors = eigenvectors[
-    #     :, np.argsort(np.argmax(np.abs(eigenvectors), axis=0))
-    # ]
-
-    sorted_eigenvectors, perm = greedy_sort_eigenvectors(eigenvectors)
-
-    data_after_GEVP = np.einsum(
+    matrix_after_gevp = np.einsum(
         "ai,abxy,bj->ijxy",
-        sorted_eigenvectors.conj(),
-        matrix,
-        sorted_eigenvectors,
+        eigenvectors.conj(),
+        matrix_before_gevp,
+        eigenvectors,
     )
-
-    return data_after_GEVP, eigenvalues, sorted_eigenvectors
+    return matrix_after_gevp, eigenvalues, eigenvectors
 
 
 def greedy_sort_eigenvectors(
     eigenvectors: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Greedy assignment of eigenvectors to dominant components.
-
-    Parameters
-    ----------
-    eigenvectors : (N, N) array
-        Columns are eigenvectors.
-
-    Returns
-    -------
-    sorted_eigenvectors : (N, N)
-        Columns reordered uniquely.
-    perm : (N,)
-        permutation indices.
-    """
-
+    """Greedy assignment of eigenvectors to dominant matrix components."""
     n = eigenvectors.shape[1]
+    candidates = sorted(
+        (
+            (abs(eigenvectors[row, col]), row, col)
+            for col in range(n)
+            for row in range(eigenvectors.shape[0])
+        ),
+        reverse=True,
+    )
 
-    # (score, row, col)
-    # score = |eigenvector entry|
-    candidates = []
-    for col in range(n):
-        for row in range(eigenvectors.shape[0]):
-            candidates.append((abs(eigenvectors[row, col]), row, col))
+    used_rows: set[int] = set()
+    used_cols: set[int] = set()
+    assignment: dict[int, int] = {}
 
-    # sort by strongest components first
-    candidates.sort(reverse=True, key=lambda x: x[0])
-
-    used_rows = set()
-    used_cols = set()
-    assignment = {}
-
-    # greedy matching
-    for val, row, col in candidates:
-        if col in used_cols:
+    for _, row, col in candidates:
+        if col in used_cols or row in used_rows:
             continue
-        if row in used_rows:
-            continue
-
         assignment[col] = row
         used_cols.add(col)
         used_rows.add(row)
-
         if len(assignment) == n:
             break
 
-    # fallback: ensure completeness (in case degeneracy)
-    remaining_cols = [c for c in range(n) if c not in assignment]
-    remaining_rows = [r for r in range(n) if r not in used_rows]
+    for col, row in zip(
+        (c for c in range(n) if c not in assignment),
+        (r for r in range(n) if r not in used_rows),
+    ):
+        assignment[col] = row
 
-    for c, r in zip(remaining_cols, remaining_rows):
-        assignment[c] = r
-
-    # build permutation
     perm = np.array([col for col, _ in sorted(assignment.items(), key=lambda x: x[1])])
-
-    sorted_eigenvectors = eigenvectors[:, perm]
-
-    return sorted_eigenvectors, perm
+    return eigenvectors[:, perm], perm
