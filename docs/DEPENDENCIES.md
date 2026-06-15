@@ -27,7 +27,7 @@ pip install -r requirements.txt
 |---------|-----------------|----------------------|
 | **numpy** | 1.24 | Array storage, linear algebra, I/O for `.npy` correlators |
 | **scipy** | 1.10 | `scipy.linalg.eig` for GEVP generalized eigenvalue problem |
-| **matplotlib** | 3.7 | PDF figure generation; LaTeX labels via `text.usetex` |
+| **matplotlib** | 3.7 | PDF figure generation; LaTeX labels via `plotting/plot_set.py` (`RC_PARAMS`) |
 | **gvar** | 11.0 | `gvar` objects for mean/error propagation in fits and plots |
 | **lsqfit** | 12.0 | Bayesian nonlinear least-squares fitting (`lsf.nonlinear_fit`) |
 | **joblib** | 1.2 | Parallel precomputation of Lüscher zeta function lookup table |
@@ -65,7 +65,7 @@ main.py
 | **TeX distribution** | Yes (for default plots) | LaTeX rendering of physics symbols (\(\eta_c\), \(J/\psi\), etc.) |
 | **dvipng** or **ghostscript** | Bundled with TeX | matplotlib LaTeX backend |
 
-If TeX is not available, disable LaTeX in plotting modules or install a minimal TeX subset.
+If TeX is not available, set `"text.usetex": False` in `plotting/plot_set.py` → `RC_PARAMS`, or install a minimal TeX subset.
 
 ---
 
