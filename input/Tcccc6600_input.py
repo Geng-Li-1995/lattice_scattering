@@ -1,0 +1,225 @@
+# Tcccc6600_input.py
+
+from dataclasses import dataclass
+from typing import Dict, Tuple, ClassVar
+
+
+@dataclass
+class InputControl:
+    """Central configuration controlling analysis, plotting, and lattice setup."""
+
+    tetraquark_name: str = "Tcccc6600"
+
+    # Lattice setup
+    lattice_Ns: int = 12  # Ns = 12, 16, 24
+    lattice_Nt: int = 0
+    num_eigenvectors: int = 0
+    pion_mass: int = 0
+
+    # Analysis options
+    is_meson_analysis: bool = False
+    is_tetraquark_analysis: bool = not is_meson_analysis
+    is_gevp: bool = True
+    is_svd: bool = False
+    is_ratio: bool = False
+
+    run_tmin: bool = False
+    run_resample: bool = False
+    run_scattering: bool = True
+
+    plot_meff: bool = True
+    plot_dispersion: bool = True
+
+    resample_type: str = "jackknife"
+    sample_axis: int = -1
+    n_boot: int = 1000
+
+    Ns_list: ClassVar[list[int]] = [12, 16]  # lattice sizes for scattering
+
+    def __post_init__(self):
+        """Initialize lattice parameters based on lattice_Ns."""
+        self.lattice_Ns, self.lattice_Nt, self.pion_mass, self.num_eigenvectors = (
+            self.get_lattice_params(self.lattice_Ns)
+        )
+        # Generate list of lattice params for scattering_list
+        self.scattering_list = [self.get_lattice_params(ns) for ns in self.Ns_list]
+
+    @staticmethod
+    def get_lattice_params(lattice_Ns: int) -> tuple[int, int, int, int]:
+        """Return (lattice_Ns, lattice_Nt, pion_mass, num_eigenvectors) for a given lattice_Ns."""
+        match lattice_Ns:
+            case 12:
+                return 12, 96, 420, 170
+            case 16:
+                return 16, 128, 420, 120
+            case _:
+                raise ValueError(f"Unknown lattice_Ns={lattice_Ns}")
+
+    def ensemble_key(self) -> tuple[int, int, int, int]:
+        """Map configuration → ENSEMBLE_DB key."""
+        return (self.lattice_Ns, self.lattice_Nt, self.pion_mass, self.num_eigenvectors)
+
+    def analysis_type(self) -> str:
+        """Decide analysis branch automatically (tetraquark overrides meson)."""
+        if self.is_tetraquark_analysis:
+            return "tetraquark"
+        if self.is_meson_analysis:
+            return "meson"
+        raise ValueError("Neither meson nor tetraquark analysis is selected.")
+
+
+# ======================================================
+# 1. ENSEMBLE_DB (UNCHANGED - FULL DATA PRESERVED)
+# ======================================================
+ENSEMBLE_DB: Dict[Tuple[int, int, int, int], Dict] = {
+    # ======================================================
+    # Ensemble: (12, 96, 420, 170)
+    # ======================================================
+    (12, 96, 420, 170): {
+        "at_invs": 7.219,
+        "GEVP": (15, 25, 20),
+        "meson": {
+            "chan_name_list": [
+                r"\eta_c",
+                r"J/\psi",
+            ],
+            "chan_momt_list": [
+                [0, 1, 2, 3, 4, 5, 6, 8, 9],  # no n^2=7 on lattice
+                [0, 1, 2, 3, 4, 5, 6, 8, 9],
+            ],
+            "tmin_arry": [
+                [32, 27, 26, 20, 20, 20, 20, 50, 20, 20],
+                [29, 23, 20, 20, 20, 20, 20, 50, 20, 20],
+            ],
+            "prir_weff_0": [
+                [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+                [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+            ],
+            "prir_weff_1": [
+                [0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01],
+                [0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01],
+            ],
+            "prir_meff_0": [
+                [0.42, 0.43, 0.44, 0.45, 0.46, 0.47, 0.49, 1.0, 0.51, 0.52],
+                [0.43, 0.44, 0.45, 0.46, 0.48, 0.49, 0.50, 1.0, 0.52, 0.53],
+            ],
+            "prir_meff_1": [
+                [0.6, 0.6, 0.6, 0.6, 0.6, 0.6, 0.6, 0.6, 0.6, 0.6],
+                [0.6, 0.6, 0.6, 0.6, 0.6, 0.6, 0.6, 0.6, 0.6, 0.6],
+            ],
+        },
+        "tetraquark": {
+            "chan_name_list": [
+                r"\eta_c\,\eta_c",
+                r"J/\psi\,J/\psi",
+            ],
+            "chan_momt_list": [
+                [1, 2, 4],
+                [0, 1, 2, 3, 4],
+            ],
+            "tmin_arry": [
+                [50, 29, 28, 50, 28],
+                [27, 28, 23, 26, 22],
+            ],
+            "prir_weff_0": [
+                [0.5, 0.5, 0.5, 0.5, 0.5],
+                [0.5, 0.5, 0.5, 0.5, 0.5],
+            ],
+            "prir_weff_1": [
+                [0.5, 0.5, 0.5, 0.5, 0.5],
+                [0.5, 0.5, 0.5, 0.5, 0.5],
+            ],
+            "prir_weff_2": [
+                [0.01, 0.01, 0.01, 0.01, 0.01],
+                [0.01, 0.01, 0.01, 0.01, 0.01],
+            ],
+            "prir_meff_0": [
+                [1.00, 0.86, 0.88, 1.00, 0.93],
+                [0.86, 0.88, 0.90, 0.92, 0.94],
+            ],
+            "prir_meff_1": [
+                [0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0],
+            ],
+            "prir_meff_2": [
+                [1.0, 1.0, 1.0, 1.0, 1.0],
+                [1.0, 1.0, 1.0, 1.0, 1.0],
+            ],
+        },
+    },
+    # ======================================================
+    # Ensemble: (16, 128, 420, 120)
+    # ======================================================
+    (16, 128, 420, 120): {
+        "at_invs": 7.219,
+        "GEVP": (30, 40, 35),
+        "meson": {
+            "chan_name_list": [
+                r"\eta_c",
+                r"J/\psi",
+            ],
+            "chan_momt_list": [
+                [0, 1, 2, 3, 4, 5, 6, 8, 9],  # no n^2=7 on lattice
+                [0, 1, 2, 3, 4, 5, 6, 8, 9],
+            ],
+            "tmin_arry": [
+                [26, 20, 21, 21, 21, 21, 21, 50, 21, 21],
+                [26, 19, 18, 20, 20, 23, 20, 50, 20, 20],
+            ],
+            "prir_weff_0": [
+                [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+                [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+            ],
+            "prir_weff_1": [
+                [0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01],
+                [0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01],
+            ],
+            "prir_meff_0": [
+                [0.41, 0.42, 0.43, 0.435, 0.44, 0.45, 0.46, 1.0, 0.47, 0.48],
+                [0.42, 0.43, 0.44, 0.45, 0.455, 0.46, 0.47, 1.0, 0.48, 0.49],
+            ],
+            "prir_meff_1": [
+                [0.6, 0.6, 0.6, 0.6, 0.6, 0.6, 0.6, 0.6, 0.6, 0.6],
+                [0.6, 0.6, 0.6, 0.6, 0.6, 0.6, 0.6, 0.6, 0.6, 0.6],
+            ],
+        },
+        "tetraquark": {
+            "chan_name_list": [
+                r"\eta_c\,\eta_c",
+                r"J/\psi\,J/\psi",
+            ],
+            "chan_momt_list": [
+                [1, 2, 4],
+                [0, 1, 2, 3, 4],
+            ],
+            "tmin_arry": [
+                [50, 29, 29, 50, 22, 50],
+                [24, 28, 29, 29, 33, 50],
+            ],
+            "prir_weff_0": [
+                [0.5, 0.5, 0.5, 0.5, 0.5],
+                [0.5, 0.5, 0.5, 0.5, 0.5],
+            ],
+            "prir_weff_1": [
+                [0.5, 0.5, 0.5, 0.5, 0.5],
+                [0.5, 0.5, 0.5, 0.5, 0.5],
+            ],
+            "prir_weff_2": [
+                [0.01, 0.01, 0.01, 0.01, 0.01],
+                [0.01, 0.01, 0.01, 0.01, 0.01],
+            ],
+            "prir_meff_0": [
+                [1.00, 0.84, 0.86, 1.00, 0.89],
+                [0.86, 0.87, 0.88, 0.90, 0.91],
+            ],
+            "prir_meff_1": [
+                [0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0],
+            ],
+            "prir_meff_2": [
+                [1.0, 1.0, 1.0, 1.0, 1.0],
+                [1.0, 1.0, 1.0, 1.0, 1.0],
+            ],
+        },
+    },
+}

@@ -1,0 +1,8 @@
+# Python >= 3.10 required (match/case syntax, PEP 604 unions)
+
+numpy>=1.24
+scipy>=1.10
+matplotlib>=3.7
+gvar>=11.0
+lsqfit>=12.0
+joblib>=1.2

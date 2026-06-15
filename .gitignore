@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+venv/
+.env
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+*.swp
+*~
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Large binary data (place .npy files here locally; not tracked)
+data/**/raw/*.npy
+data/**/resampled/*.npy
+
+# Regenerable cache (auto-created on first run)
+data/zeta/*.npy
+
+# Generated figures (reproduced by running main.py)
+result/**/*.pdf
+
+# Optional: lock file from pip freeze (keep requirements.txt instead)
+requirements-lock.txt
