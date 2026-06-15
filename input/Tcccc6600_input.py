@@ -8,7 +8,11 @@ from input.types import EnsembleKey, EnsembleEntry, ScatteringList
 
 @dataclass
 class InputControl:
-    """Central configuration controlling analysis, plotting, and lattice setup."""
+    """Central configuration controlling analysis, plotting, and lattice setup.
+
+    Meson and tetraquark analysis are mutually exclusive. If both flags are True
+    at init, tetraquark wins (see __post_init__).
+    """
 
     tetraquark_name: str = "Tcccc6600"
 
@@ -18,8 +22,8 @@ class InputControl:
     num_eigenvectors: int = 0
     pion_mass: int = 0
 
-    # Analysis options
-    is_meson_analysis: bool = True
+    # Analysis options (mutually exclusive: tetraquark wins if both are True)
+    is_meson_analysis: bool = False
     is_tetraquark_analysis: bool = True
     is_gevp: bool = True
     is_svd: bool = False
@@ -29,8 +33,8 @@ class InputControl:
     run_resample: bool = False  # set by run_resample.py; suppresses plots during resampling
     run_scattering: bool = True
 
-    plot_meff: bool = True
-    plot_dispersion: bool = True
+    plot_meff: bool = True          # En / Zn plots (fit always runs)
+    plot_dispersion: bool = True    # dispersion fit + plot (meson mode only)
 
     resample_type: str = "jackknife"
     sample_axis: int = -1
@@ -50,7 +54,9 @@ class InputControl:
 
     def __post_init__(self):
         """Initialize lattice parameters based on lattice_Ns."""
-        if self.is_meson_analysis:
+        if self.is_meson_analysis and self.is_tetraquark_analysis:
+            self.is_meson_analysis = False
+        elif self.is_meson_analysis:
             self.is_tetraquark_analysis = False
         elif not self.is_tetraquark_analysis:
             self.is_tetraquark_analysis = True

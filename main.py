@@ -24,11 +24,14 @@ def main() -> None:
     plotter = MassPlotter(config)
 
     en_fit_list = fitter.effective_mass(corr_dict)
-    plotter.plot_En(corr_dict, en_fit_list)
-    plotter.plot_Zn(en_fit_list)
 
-    disp_fit_list = fitter.dispersion(en_fit_list)
-    plotter.plot_dispersion(en_fit_list, disp_fit_list)
+    if config.plot_meff:
+        plotter.plot_En(corr_dict, en_fit_list)
+        plotter.plot_Zn(en_fit_list)
+
+    if config.plot_dispersion and config.is_meson_analysis:
+        disp_fit_list = fitter.dispersion(en_fit_list)
+        plotter.plot_dispersion(en_fit_list, disp_fit_list)
 
     scattering_dict = run_scattering_analysis(config, resampled_dict)
     if scattering_dict is not None:
