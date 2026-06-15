@@ -26,8 +26,8 @@ data/**/resampled/*.npy
 # Regenerable cache (auto-created on first run)
 data/zeta/*.npy
 
-# Generated figures (reproduced by running main.py)
-result/**/*.pdf
+# Result PDFs under result/ are tracked for portfolio display.
+# Re-run main.py to regenerate locally; commit updates when figures change.
 
 # Optional: lock file from pip freeze (keep requirements.txt instead)
 requirements-lock.txt

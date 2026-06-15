@@ -227,7 +227,7 @@ Scattering analysis combines results from both volumes (`InputControl.Ns_list = 
 
 ## Version Control
 
-This project uses Git. Large binary files (`.npy` correlators, PDF outputs) are excluded via `.gitignore`; only source code and documentation are tracked.
+This project uses Git. Large binary data files (`.npy` correlators) are excluded via `.gitignore`; **result PDF figures** under `result/<system>/` are tracked for portfolio display.
 
 ```bash
 # First-time setup (already done if .git/ exists)
@@ -244,8 +244,6 @@ git push -u origin main
 ```
 
 Place local data files under `data/<system>/raw/` after cloning — they are not stored in the repository (~80 MB). See [docs/RUNNING.md](docs/RUNNING.md) for the expected file layout.
-
-To **track data or results** in Git (e.g. for a private repo), remove the corresponding lines from `.gitignore`.
 
 ---
 
