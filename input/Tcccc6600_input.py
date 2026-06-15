@@ -13,13 +13,13 @@ class InputControl:
     tetraquark_name: str = "Tcccc6600"
 
     # Lattice setup
-    lattice_Ns: int = 16  # Ns = 12, 16, 24
+    lattice_Ns: int = 12  # Ns = 12, 16, 24
     lattice_Nt: int = 0
     num_eigenvectors: int = 0
     pion_mass: int = 0
 
     # Analysis options
-    is_meson_analysis: bool = False
+    is_meson_analysis: bool = True
     is_tetraquark_analysis: bool = True
     is_gevp: bool = True
     is_svd: bool = False
