@@ -27,7 +27,8 @@ def main() -> None:
 
     if config.plot_meff:
         plotter.plot_En(corr, en_fit_list)
-        plotter.plot_Zn(en_fit_list)
+        if config.is_meson_analysis:
+            plotter.plot_Zn(en_fit_list)
 
     if config.plot_dispersion and config.is_meson_analysis:
         disp_fit_list = fitter.dispersion(en_fit_list)

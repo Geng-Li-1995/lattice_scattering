@@ -32,7 +32,7 @@ lattice_scattering/
 ├── input/
 │   ├── config.py            # BuildConfig → immutable Config dataclass
 │   ├── Tcccc6600_input.py   # InputControl switches + ENSEMBLE_DB priors
-│   ├── selector.py          # Pick correlator array and fit model from config
+│   ├── selector.py          # Select Correlator4D and fit model from config
 │   └── types.py             # Type aliases
 ├── data/
 │   ├── correlators.py       # Correlator4D, TetraquarkCorrelator, Raw/AnalysisCorrelators
@@ -53,15 +53,17 @@ lattice_scattering/
     └── plot_scattering.py   # K_s, kcot
 ```
 
-**Naming conventions** (see `input/types.py`):
+**Data types** (see `data/correlators.py`):
 
-| Variable | Meaning |
-|----------|---------|
-| `raw` | `RawCorrelators` from disk (meson 4D, tetraquark 6D) |
-| `corr` | `AnalysisCorrelators` after GEVP (both 4D for fitting) |
-| `resampled` | Jackknife/bootstrap energies and \(\xi\) |
+| Variable | Type / shape |
+|----------|----------------|
+| `raw` | `RawCorrelators` — meson `[ch, mom, t, sample]`, tetraquark `[ch_s, mom_s, ch_n, mom_n, t, sample]` |
+| `corr` | `AnalysisCorrelators` — both branches 4D after GEVP |
+| `resampled` | `dict` — jackknife/bootstrap `En` and meson `ksi` per ensemble |
 | `en_fit_list` / `disp_fit_list` | Effective-mass / dispersion fit results |
 | `scattering_dict` | Scattering observables per ensemble |
+
+`mom` is the momentum quantum number \(n^2\) used as an **array index** (not a sequential 0…N−1 label). Channel/momentum lists come from `chan_momt_list` in `ENSEMBLE_DB`.
 
 ---
 
@@ -89,7 +91,7 @@ data/<system>/raw/*.npy
 3. `process_GEVP()` — **tetraquark mode only**; builds FVE matrix, optional GEVP diagonalization
 4. GEVP plots — if `is_gevp=True` and tetraquark mode (`GEVP_before/after/eigenvector_<tag>.pdf`)
 5. `effective_mass()` — always runs; fit diagnostics printed to stdout
-6. Mass plots — if `plot_meff=True`: `En_<type>_<tag>.pdf`, `Zn_meson_<tag>.pdf` (Zn meson-only)
+6. Mass plots — if `plot_meff=True`: `En_<type>_<tag>.pdf`; `Zn_meson_<tag>.pdf` only in meson mode
 7. Dispersion — if `plot_dispersion=True` **and** `is_meson_analysis=True`: fit + `Dispersion_meson_<tag>.pdf`
 8. Scattering — if `run_scattering=True` **and** `is_tetraquark_analysis=True`: `K_s_scattering_<tag>.pdf`, `kcot_scattering_<tag>.pdf`
 
@@ -172,7 +174,7 @@ python main.py
 
 | File pattern | Shape / content |
 |--------------|-----------------|
-| `correlation_meson_L{Ns}M{M}_EV{EV}.npy` | `[channel, momentum, time, sample]` |
+| `correlation_meson_L{Ns}M{M}_EV{EV}.npy` | `[channel, momentum, time, sample]` — `momentum` = \(n^2\) index |
 | `correlation_tetraquark_L{Ns}M{M}_EV{EV}.npy` | `[ch_src, mom_src, ch_snk, mom_snk, time, sample]` |
 | `resample_En_{type}_L{Ns}M{M}_EV{EV}.npy` | Per-configuration energies |
 | `resample_ksi_meson_L{Ns}M{M}_EV{EV}.npy` | Dispersion scale \(\xi\) |

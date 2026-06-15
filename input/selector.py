@@ -5,7 +5,7 @@ from analysis.models import MODEL_REGISTRY
 
 
 class SelectorType:
-    """Select correlator data and fitting model from config."""
+    """Return the active Correlator4D and cosh fit model for the current analysis mode."""
 
     def __init__(self, config: Config, corr: AnalysisCorrelators):
         self.config = config

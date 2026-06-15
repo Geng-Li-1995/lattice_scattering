@@ -4,9 +4,8 @@ from typing import Any, Callable, Dict, List, Tuple, TypeAlias
 
 import numpy as np
 
-EnsembleKey: TypeAlias = Tuple[int, int, int, int]
+EnsembleKey: TypeAlias = Tuple[int, int, int, int]  # (Ns, Nt, pion_mass, num_eigenvectors)
 ScatteringList: TypeAlias = List[EnsembleKey]
-CorrelatorArray: TypeAlias = np.ndarray
 ResampleDataDict: TypeAlias = Dict[str, Dict[EnsembleKey, np.ndarray]]
 
 ModelFn: TypeAlias = Callable[..., Any]

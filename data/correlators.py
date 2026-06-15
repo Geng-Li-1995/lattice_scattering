@@ -15,7 +15,7 @@ def _as_f64(arr: np.ndarray) -> np.ndarray:
 
 @dataclass
 class Correlator4D:
-    """Meson correlator or post-GEVP effective operator: [channel, momentum, time, sample]."""
+    """[channel, momentum, time, sample]; momentum index = n^2 on the lattice."""
 
     data: np.ndarray
 
@@ -33,7 +33,7 @@ class Correlator4D:
 
 @dataclass
 class TetraquarkCorrelator:
-    """Raw tetraquark: [channel_src, momentum_src, channel_snk, momentum_snk, time, sample]."""
+    """[ch_src, mom_src, ch_snk, mom_snk, time, sample]; mom indices = n^2."""
 
     data: np.ndarray
 
