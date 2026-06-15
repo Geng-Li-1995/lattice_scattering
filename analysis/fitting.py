@@ -4,9 +4,10 @@ import gvar as gv
 
 from analysis.models import MathModels
 from analysis.utils import en_fit_lookup, ksi_from_disp_fit
+from data.correlators import AnalysisCorrelators
 from input.config import Config
 from input.selector import SelectorType
-from input.types import FileDict, FitResultList
+from input.types import FitResultList
 
 
 class RunFitting:
@@ -16,10 +17,9 @@ class RunFitting:
         self.lattice_Nt = config.lattice_Nt
         self.results: FitResultList = []
 
-    def effective_mass(self, corr_dict: FileDict) -> FitResultList:
-        """Fit effective mass En for each channel and momentum."""
-        selector = SelectorType(self.config, corr_dict)
-        corr = selector.get_data()
+    def effective_mass(self, corr: AnalysisCorrelators) -> FitResultList:
+        selector = SelectorType(self.config, corr)
+        data = selector.get_data()
         model_fn, prior_fn = selector.get_model()
 
         en_fit_list: FitResultList = []
@@ -29,8 +29,8 @@ class RunFitting:
                 t_max = self.config.t_max[ch_idx][mom]
                 t_fit = np.arange(t_min, t_max)
 
-                norm = corr[ch_idx][mom][self.lattice_Nt // 2].mean()
-                y_gv = gv.dataset.avg_data(corr[ch_idx][mom][t_min:t_max].T / norm)
+                norm = data.at(ch_idx, mom)[self.lattice_Nt // 2].mean()
+                y_gv = gv.dataset.avg_data(data.at(ch_idx, mom)[t_min:t_max].T / norm)
 
                 mass_fit = lsf.nonlinear_fit(
                     data=(t_fit, y_gv),
@@ -55,7 +55,6 @@ class RunFitting:
         return en_fit_list
 
     def dispersion(self, en_fit_list: FitResultList) -> FitResultList:
-        """Fit dispersion relation E_n^2 vs n^2 for each channel."""
         at_invs = self.config.at_invs
         ns = self.config.ensemble_key[0]
         lookup = en_fit_lookup(en_fit_list)

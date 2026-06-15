@@ -4,8 +4,8 @@ import numpy as np
 from scipy import linalg
 
 from analysis.utils import fve_offsets
+from data.correlators import AnalysisCorrelators, Correlator4D, RawCorrelators
 from input.config import Config
-from input.types import FileDict
 
 
 @dataclass
@@ -16,35 +16,29 @@ class GEVPPlotData:
 
 
 def process_GEVP(
-    config: Config, raw_dict: FileDict
-) -> tuple[FileDict, GEVPPlotData | None]:
-    """
-    Build FVE matrix from tetraquark correlators, optionally solve GEVP,
-    and return correlators as [channel, momentum, time, sample].
-    """
-    corr_dict = dict(raw_dict)
+    config: Config, raw: RawCorrelators
+) -> tuple[AnalysisCorrelators, GEVPPlotData | None]:
+    corr = AnalysisCorrelators.from_raw(raw)
 
-    if not config.is_tetraquark_analysis:
-        return corr_dict, None
+    if not config.is_tetraquark_analysis or raw.tetraquark is None:
+        return corr, None
 
-    tetra_raw = raw_dict["tetraquark"]
+    tetra = raw.tetraquark
     chan_momt_list = config.chan_momt_list
     n_mom_per_ch = [len(moms) for moms in chan_momt_list]
     n_fve = sum(n_mom_per_ch)
     offsets = fve_offsets(n_mom_per_ch)
 
-    matrix_before_gevp = np.zeros(
-        (n_fve, n_fve, tetra_raw.shape[-2], tetra_raw.shape[-1])
-    )
+    matrix_before_gevp = np.zeros((n_fve, n_fve, tetra.n_time, tetra.n_sample))
     for ch_src, mom_list_src in enumerate(chan_momt_list):
         for mom_idx_src, mom_src in enumerate(mom_list_src):
             for ch_snk, mom_list_snk in enumerate(chan_momt_list):
                 for mom_idx_snk, mom_snk in enumerate(mom_list_snk):
                     fve_src = offsets[ch_src] + mom_idx_src
                     fve_snk = offsets[ch_snk] + mom_idx_snk
-                    matrix_before_gevp[fve_src, fve_snk] = tetra_raw[
+                    matrix_before_gevp[fve_src, fve_snk] = tetra.at(
                         ch_src, mom_src, ch_snk, mom_snk
-                    ]
+                    )
 
     print("matrix_before_gevp.shape:", matrix_before_gevp.shape)
 
@@ -66,15 +60,13 @@ def process_GEVP(
             corr_after_gevp[ch_idx, mom] = diag[:, :, fve_idx]
             fve_idx += 1
 
-    corr_dict["tetraquark"] = corr_after_gevp
     print("corr_after_gevp.shape:", corr_after_gevp.shape)
-    return corr_dict, gevp_plot_data
+    return corr.with_tetraquark(corr_after_gevp), gevp_plot_data
 
 
 def solve_GEVP(
     config: Config, matrix_before_gevp: np.ndarray
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Solve C(t1) v = lambda C(t0) v and rotate the correlator matrix."""
     sample_axis = config.sample_axis
     t0, t1, _ = config.t_GEVP
 
@@ -97,7 +89,6 @@ def solve_GEVP(
 def greedy_sort_eigenvectors(
     eigenvectors: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Greedy assignment of eigenvectors to dominant matrix components."""
     n = eigenvectors.shape[1]
     candidates = sorted(
         (

@@ -10,8 +10,8 @@ A modular Python pipeline for **lattice QCD spectroscopy and Lüscher scattering
 
 | Capability | Module | Output |
 |------------|--------|--------|
-| Load raw / resampled `.npy` correlators | `data/io.py` | `raw_dict`, `resampled_dict` |
-| Build FVE matrix, solve GEVP | `analysis/gevp.py` | Effective-operator `corr_dict` |
+| Load raw / resampled `.npy` correlators | `data/io.py` | `RawCorrelators`, `resampled` |
+| Build FVE matrix, solve GEVP | `analysis/gevp.py` | `AnalysisCorrelators` |
 | Multi-state cosh fits (\(E_n\), \(Z_n\)) | `analysis/fitting.py` + `analysis/models.py` | `en_fit_list` |
 | Dispersion calibration (\(\xi\) from \(E_n^2\) vs \(n^2\)) | `analysis/fitting.py` | `disp_fit_list` (meson mode) |
 | Jackknife / bootstrap resampling | `statistics/` | `data/<system>/resampled/*.npy` |
@@ -33,8 +33,10 @@ lattice_scattering/
 │   ├── config.py            # BuildConfig → immutable Config dataclass
 │   ├── Tcccc6600_input.py   # InputControl switches + ENSEMBLE_DB priors
 │   ├── selector.py          # Pick correlator array and fit model from config
-│   └── types.py             # Type aliases and variable naming conventions
-├── data/io.py               # read_raw_files(), read_file()
+│   └── types.py             # Type aliases
+├── data/
+│   ├── correlators.py       # Correlator4D, TetraquarkCorrelator, Raw/AnalysisCorrelators
+│   └── io.py                # read_raw_files(), read_file()
 ├── analysis/
 │   ├── gevp.py              # FVE matrix, GEVP solver
 │   ├── fitting.py           # RunFitting: effective_mass(), dispersion()
@@ -55,9 +57,9 @@ lattice_scattering/
 
 | Variable | Meaning |
 |----------|---------|
-| `raw_dict` | Raw correlators from disk |
-| `corr_dict` | Correlators after GEVP (ready for fitting) |
-| `resampled_dict` | Jackknife/bootstrap energies and \(\xi\) |
+| `raw` | `RawCorrelators` from disk (meson 4D, tetraquark 6D) |
+| `corr` | `AnalysisCorrelators` after GEVP (both 4D for fitting) |
+| `resampled` | Jackknife/bootstrap energies and \(\xi\) |
 | `en_fit_list` / `disp_fit_list` | Effective-mass / dispersion fit results |
 | `scattering_dict` | Scattering observables per ensemble |
 

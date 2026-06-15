@@ -6,8 +6,8 @@ from analysis.fitting import RunFitting
 from analysis.gevp import process_GEVP
 from analysis.models import MathModels
 from analysis.utils import en_fit_lookup, ksi_from_disp_fit
+from data.correlators import RawCorrelators
 from input.config import Config
-from input.types import FileDict
 from statistics.bootstrap import Bootstrap
 from statistics.jackknife import Jackknife
 
@@ -20,36 +20,40 @@ def get_resampler(config: Config, data: np.ndarray) -> Jackknife | Bootstrap:
     raise ValueError(f"Unknown resample_type: {config.resample_type}")
 
 
-def _resample_raw_dict(
-    config: Config, raw_dict: FileDict, sample_idx: int, n_sample: int, rng: np.random.Generator
-) -> FileDict:
+def _resample_arrays(
+    config: Config,
+    arrays: dict[str, np.ndarray],
+    sample_idx: int,
+    n_sample: int,
+    rng: np.random.Generator,
+) -> dict[str, np.ndarray]:
     sample_axis = config.sample_axis
 
     if config.resample_type == "jackknife":
         return {
             key: Jackknife(arr, axis=sample_axis).resample_manual(sample_idx)
-            for key, arr in raw_dict.items()
+            for key, arr in arrays.items()
         }
 
     if config.resample_type == "bootstrap":
         boot_idx = rng.integers(0, n_sample, size=n_sample)
-        return {key: np.take(arr, boot_idx, axis=sample_axis) for key, arr in raw_dict.items()}
+        return {key: np.take(arr, boot_idx, axis=sample_axis) for key, arr in arrays.items()}
 
     raise ValueError(f"Unknown resample_type: {config.resample_type}")
 
 
-def run_resample_statistics(config: Config, raw_dict: FileDict) -> None:
-    """Run jackknife or bootstrap resampling and save energies to data/<system>/resampled/."""
+def run_resample_statistics(config: Config, raw: RawCorrelators) -> None:
     sample_axis = config.sample_axis
     chan_momt_list = config.chan_momt_list
     at_invs = config.at_invs
     ns = config.ensemble_key[0]
     analysis_corr_type = "tetraquark" if config.is_tetraquark_analysis else "meson"
 
+    arrays = raw.array_items()
     n_chan = len(chan_momt_list)
     mom_max = max((max(moms) for moms in chan_momt_list if moms), default=-1) + 1
 
-    n_samples = {arr.shape[sample_axis] for arr in raw_dict.values()}
+    n_samples = {arr.shape[sample_axis] for arr in arrays.values()}
     if len(n_samples) != 1:
         raise ValueError("Different n_samples across correlator types")
     n_sample = n_samples.pop()
@@ -62,9 +66,10 @@ def run_resample_statistics(config: Config, raw_dict: FileDict) -> None:
     rng = np.random.default_rng()
 
     for sample_idx in range(n_iterations):
-        raw_jk_dict = _resample_raw_dict(config, raw_dict, sample_idx, n_sample, rng)
-        corr_jk_dict, _ = process_GEVP(config, raw_jk_dict)
-        fit_lookup = en_fit_lookup(fitter.effective_mass(corr_jk_dict))
+        resampled_arrays = _resample_arrays(config, arrays, sample_idx, n_sample, rng)
+        raw_jk = RawCorrelators.from_parts(**resampled_arrays)
+        corr_jk, _ = process_GEVP(config, raw_jk)
+        fit_lookup = en_fit_lookup(fitter.effective_mass(corr_jk))
 
         for ch_idx, mom_list in enumerate(chan_momt_list):
             en_sq_list = []

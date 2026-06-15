@@ -16,8 +16,8 @@ def main(system_name: str = "Tcccc6600") -> None:
     config = BuildConfig(system_name).build_config_from_control()
     config = replace(config, run_resample=True)
 
-    raw_dict = read_raw_files(config)
-    run_resample_statistics(config, raw_dict)
+    raw = read_raw_files(config)
+    run_resample_statistics(config, raw)
 
     print("Resample task is finished!")
 

@@ -5,9 +5,10 @@ import matplotlib.pyplot as plt
 
 from analysis.models import MathModels
 from analysis.utils import disp_fit_lookup, en_fit_lookup
+from data.correlators import AnalysisCorrelators
 from input.config import Config
 from input.selector import SelectorType
-from input.types import FileDict, FitResultList
+from input.types import FitResultList
 from plotting.plot_set import (
     COLORS,
     ERRORBAR_KW,
@@ -46,9 +47,9 @@ class MassPlotter:
     def _save(self, name: str) -> None:
         save_figure(f"result/{self.input_name}/{name}_{self.corr_type}_{self.tag_name}.pdf")
 
-    def plot_En(self, corr_dict: FileDict, en_fit_list: FitResultList) -> None:
-        selector = SelectorType(self.config, corr_dict)
-        corr = selector.get_data()
+    def plot_En(self, corr: AnalysisCorrelators, en_fit_list: FitResultList) -> None:
+        selector = SelectorType(self.config, corr)
+        data = selector.get_data()
         model_fn, _ = selector.get_model()
         en_lookup = en_fit_lookup(en_fit_list)
 
@@ -59,7 +60,7 @@ class MassPlotter:
         for ch_idx, mom_list in enumerate(self.chan_momt_list):
             en_by_ch[ch_idx] = []
             for mom in mom_list:
-                mean, err = self._cosh_with_error(corr[ch_idx][mom])
+                mean, err = self._cosh_with_error(data.at(ch_idx, mom))
                 plt.errorbar(
                     np.arange(self.lattice_Nt),
                     mean * self.at_invs,

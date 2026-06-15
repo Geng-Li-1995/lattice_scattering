@@ -1,21 +1,21 @@
 from input.config import Config
-from input.types import CorrelatorArray, FileDict, ModelFn, PriorFn
+from data.correlators import AnalysisCorrelators, Correlator4D
+from input.types import ModelFn, PriorFn
 from analysis.models import MODEL_REGISTRY
 
 
 class SelectorType:
     """Select correlator data and fitting model from config."""
 
-    def __init__(self, config: Config, corr_dict: FileDict):
+    def __init__(self, config: Config, corr: AnalysisCorrelators):
         self.config = config
-        self.corr_dict = corr_dict
+        self.corr = corr
 
-    def get_data(self) -> CorrelatorArray:
-        if self.config.is_meson_analysis:
-            return self.corr_dict["meson"]
-        if self.config.is_tetraquark_analysis:
-            return self.corr_dict["tetraquark"]
-        raise ValueError("No valid analysis type selected in config")
+    def get_data(self) -> Correlator4D:
+        return self.corr.active(
+            self.config.is_meson_analysis,
+            self.config.is_tetraquark_analysis,
+        )
 
     def get_model(self) -> tuple[ModelFn, PriorFn]:
         if self.config.is_ratio:
