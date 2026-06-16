@@ -1,7 +1,9 @@
 """Shared plot aesthetics: figure sizes, fonts, colors, and helpers."""
 
 import gvar as gv
+import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
+import numpy as np
 
 # ---------------------------------------------------------------------------
 # Figure sizes (width, height) in inches
@@ -59,6 +61,18 @@ FIT_CURVE_COLOR = "green"
 FIT_CURVE_ALPHA = 0.2
 
 
+def blend_on_white(color, alpha: float = 1.0) -> str:
+    """Composite *color* over white without PDF transparency (viewer-safe)."""
+    rgb = np.array(mcolors.to_rgb(color))
+    blended = rgb * alpha + (1.0 - alpha)
+    return mcolors.to_hex(np.clip(blended, 0.0, 1.0))
+
+
+def fill_error_band(x, ylo, yhi, color, alpha: float = FIT_CURVE_ALPHA) -> None:
+    """Shaded error band using a solid pre-blended color (reliable in PDF)."""
+    plt.fill_between(x, ylo, yhi, color=blend_on_white(color, alpha))
+
+
 def apply_plot_style() -> None:
     """Apply global matplotlib style (TeX, serif font, unified font sizes)."""
     plt.rcParams.update(RC_PARAMS)
@@ -80,7 +94,7 @@ def add_legend(loc: str, ncol: int = 1) -> None:
 
 def save_figure(path: str) -> None:
     plt.tight_layout()
-    plt.savefig(path)
+    plt.savefig(path, format="pdf")
     plt.show()
 
 
@@ -94,4 +108,4 @@ def plot_gvar_band(
     mean = gv.mean(curve)
     err = gv.sdev(curve)
     plt.plot(x, mean, color=color, linestyle="-")
-    plt.fill_between(x, mean - err, mean + err, color=color, alpha=alpha)
+    fill_error_band(x, mean - err, mean + err, color, alpha=alpha)

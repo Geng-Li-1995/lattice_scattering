@@ -14,11 +14,11 @@ from plotting.plot_set import (
     ERRORBAR_KW,
     FIG_STANDARD,
     FIG_WIDE,
-    FIT_CURVE_ALPHA,
     LINESTYLES,
     MARKERS,
     add_legend,
     apply_plot_style,
+    fill_error_band,
     label_axes,
     new_figure,
     save_figure,
@@ -82,7 +82,7 @@ class MassPlotter:
                 m = gv.mean(cosh_fit) * self.at_invs
                 s = gv.sdev(cosh_fit) * self.at_invs
                 plt.plot(t_fit, m, linestyle=LINESTYLES[ch_idx], color=COLORS[mom])
-                plt.fill_between(t_fit, m - s, m + s, color=COLORS[mom], alpha=0.2)
+                fill_error_band(t_fit, m - s, m + s, COLORS[mom])
                 en_by_ch[ch_idx].append(mass_fit.p["meff_0"] * self.at_invs)
 
         all_en = np.concatenate([np.array(vals) for vals in en_by_ch.values()])
@@ -122,7 +122,7 @@ class MassPlotter:
             s = gv.sdev(y_fit)
             color = COLORS[ch_idx]
             plt.plot(x, m, linestyle=LINESTYLES[ch_idx], color=color)
-            plt.fill_between(x, m - s, m + s, color=color, alpha=FIT_CURVE_ALPHA)
+            fill_error_band(x, m - s, m + s, color)
 
         label_axes(r"$n^2$", rf"$Z_n/Z_0$ on {self.tag_name}")
         plt.xlim(0, mom_max)
@@ -160,7 +160,7 @@ class MassPlotter:
             s = gv.sdev(y_fit)
             color = COLORS[ch_idx]
             plt.plot(x, m, linestyle=LINESTYLES[ch_idx], color=color)
-            plt.fill_between(x, m - s, m + s, color=color, alpha=FIT_CURVE_ALPHA)
+            fill_error_band(x, m - s, m + s, color)
 
         label_axes(r"$n^2$", rf"$E_n^2$ (GeV$^2$) on {self.tag_name}")
         plt.xlim(0, mom_max)

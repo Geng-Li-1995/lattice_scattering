@@ -7,6 +7,7 @@ from plotting.plot_set import (
     FIG_STANDARD,
     add_legend,
     apply_plot_style,
+    blend_on_white,
     label_axes,
     new_figure,
     plot_gvar_band,
@@ -64,7 +65,10 @@ class ScatteringPlotter:
             k_sq_mean = scattering_dict["k_sq"][ns][:, 0]
             k_sq_err = scattering_dict["k_sq"][ns][:, 1]
 
-            plt.plot(k_sq_grid, kcot_rest_grid, color=color, linestyle="--", alpha=0.3)
+            plt.plot(
+                k_sq_grid, kcot_rest_grid,
+                color=blend_on_white(color, 0.3), linestyle="--",
+            )
             for m, e in zip(k_sq_mean, k_sq_err):
                 mask = (k_sq_grid >= m - e) & (k_sq_grid <= m + e)
                 plt.plot(k_sq_grid[mask], kcot_rest_grid[mask], color=color, linestyle="-")
