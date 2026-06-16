@@ -27,7 +27,7 @@ pip install -r requirements.txt
 |---------|-----------------|----------------------|
 | **numpy** | 1.24 | Array storage, linear algebra, I/O for `.npy` correlators |
 | **scipy** | 1.10 | `scipy.linalg.eig` for GEVP generalized eigenvalue problem |
-| **matplotlib** | 3.7 | PDF figure generation; LaTeX labels via `plotting/plot_set.py` (`RC_PARAMS`) |
+| **matplotlib** | 3.7 | Figure output (PNG/PDF); LaTeX labels via `plotting/plot_set.py` (`RC_PARAMS`) |
 | **gvar** | 11.0 | `gvar` objects for mean/error propagation in fits and plots |
 | **lsqfit** | 12.0 | Bayesian nonlinear least-squares fitting (`lsf.nonlinear_fit`) |
 | **joblib** | 1.2 | Parallel precomputation of Lüscher zeta function lookup table |

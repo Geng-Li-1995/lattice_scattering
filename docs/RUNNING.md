@@ -174,10 +174,10 @@ Default execution order (with default **tetraquark** mode):
 1. Build `Config` from `input/Tcccc6600_input.py`
 2. Load correlators from `data/Tcccc6600/raw/` (meson + tetraquark in tetraquark mode) and resampled files if `run_scattering=True`
 3. GEVP diagonalization (tetraquark mode) + matrix plots (if `is_gevp=True`)
-4. Effective-mass fit — **always runs**; `En_<type>_<tag>.pdf` if `plot_meff=True`
-5. `Zn_meson_<tag>.pdf` if `plot_meff=True` and meson mode
-6. Dispersion fit + `Dispersion_meson_<tag>.pdf` if `plot_dispersion=True` and meson mode
-7. Scattering analysis → `K_s_scattering.pdf`, `kcot_scattering.pdf` if `run_scattering=True` and tetraquark mode
+4. Effective-mass fit — **always runs**; `En_<type>_<tag>.{png|pdf}` if `plot_meff=True`
+5. `Zn_meson_<tag>.{png|pdf}` if `plot_meff=True` and meson mode
+6. Dispersion fit + `Dispersion_meson_<tag>.{png|pdf}` if `plot_dispersion=True` and meson mode
+7. Scattering analysis → `K_s_scattering.{png|pdf}`, `kcot_scattering.{png|pdf}` if `run_scattering=True` and tetraquark mode
 
 For meson \(Z_n\) and dispersion figures, run separately with `is_meson_analysis=True`, `is_tetraquark_analysis=False` (and `run_scattering=False` if scattering is not needed).
 
@@ -196,16 +196,16 @@ Plots will still be saved to `result/`; `plt.show()` will not open a window.
 
 ## 6. Output
 
-Figures are written to `result/Tcccc6600/`. Examples (default tetraquark run, `L12M420_EV170`):
+Figures are written to `result/Tcccc6600/` (extension from `plot_format`, default `png`). Examples (default tetraquark run, `L12M420_EV170`):
 
 ```
 result/Tcccc6600/
-├── GEVP_before_L12M420_EV170.pdf
-├── GEVP_after_L12M420_EV170.pdf
-├── GEVP_eigenvector_L12M420_EV170.pdf
-├── En_tetraquark_L12M420_EV170.pdf
-├── K_s_scattering.pdf
-└── kcot_scattering.pdf
+├── GEVP_before_L12M420_EV170.png
+├── GEVP_after_L12M420_EV170.png
+├── GEVP_eigenvector_L12M420_EV170.png
+├── En_tetraquark_L12M420_EV170.png
+├── K_s_scattering.png
+└── kcot_scattering.png
 ```
 
 Meson-only runs additionally produce `Zn_meson_<tag>.pdf` and `Dispersion_meson_<tag>.pdf`.

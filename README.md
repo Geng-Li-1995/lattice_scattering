@@ -13,8 +13,8 @@
 | **HPC / large-scale numerics** | Batch processing of high-dimensional correlator arrays (4D meson, 6D tetraquark); jackknife over **400 gauge configs**, each rerunning GEVP + fits |
 | **Scientific computing** | Generalized eigenvalue problems (`scipy.linalg.eig`), tensor contractions (`numpy.einsum`), Lüscher zeta summation on \(10^5\)-point grids |
 | **Statistical inference** | Bayesian nonlinear fits (`lsqfit` + `gvar`); jackknife / bootstrap resampling with correlated uncertainties end-to-end |
-| **Parallel computing** | `joblib` parallel precomputation of zeta lookup tables (`n_jobs=-1`); embarrassingly parallel resample loop |
-| **Software engineering** | Modular pipeline (I/O → analysis → statistics → plotting); typed dataclass wrappers; config-driven `ENSEMBLE_DB`; publication-ready PDF output |
+| **Parallel computing** | `joblib` parallel precomputation of zeta lookup tables (`n_jobs=-1`) |
+| **Software engineering** | Modular pipeline (I/O → analysis → statistics → plotting); typed dataclass wrappers; config-driven `ENSEMBLE_DB`; publication-ready figures (`plot_format`: PNG or PDF) |
 
 **Stack:** Python 3.10+ · NumPy · SciPy · gvar · lsqfit · joblib · Matplotlib (LaTeX)
 
@@ -46,7 +46,7 @@ Two-stage batch workflow — run from the **project root**:
 
 ```
 Monte Carlo correlators          data/<system>/raw/*.npy
-  [ch, mom, t, sample]           [ch_s, mom_s, ch_n, mom_n, t, sample]
+  [ch, mom, t, sample]           [ch_src, mom_src, ch_snk, mom_snk, t, sample]
          │
          ├─► run_resample.py          Step 1 — resampling (before scattering)
          │     jackknife / bootstrap over gauge configs
@@ -58,7 +58,7 @@ Monte Carlo correlators          data/<system>/raw/*.npy
                ├─► effective_mass()     Bayesian cosh fits (always)
                ├─► dispersion()         meson calibration (optional)
                └─► run_scattering_analysis()   Lüscher zeta → K(s), k cot δ₀
-                         └─► result/<system>/*.pdf
+                         └─► result/<system>/*.{png|pdf}   (plot_format)
 ```
 
 **Compute profile:** Step 1 is the heavy stage — \(O(N_{\mathrm{cfg}})\) full analysis passes (**400 jackknife leaves** per ensemble). Step 2 loads precomputed resampled energies and runs scattering fits plus figure generation. Zeta tables are built once and cached at `data/zeta/zeta_00_rest_array.npy`.
@@ -76,8 +76,8 @@ Monte Carlo correlators          data/<system>/raw/*.npy
 | Dispersion calibration (\(\xi\)) | `analysis/fitting.py` | `disp_fit_list` (meson mode) |
 | Jackknife / bootstrap resampling | `statistics/` | `data/<system>/resampled/*.npy` |
 | Lüscher zeta scattering | `analysis/scattering.py` | `scattering_dict` → \(K(s)\), \(k\cot\delta_0\) |
-| Unified plot styling | `plotting/plot_set.py` | TeX fonts, RC params, `save_figure()` |
-| PDF figures | `plotting/plot_*.py` | `result/<system>/*.pdf` (see naming below) |
+| Unified plot styling | `plotting/plot_set.py` | TeX fonts, z-order, `save_figure()` |
+| Figure output | `plotting/plot_*.py` | `result/<system>/*.{png,pdf}` (see naming below) |
 
 **Design:** configuration, I/O, analysis, statistics, and plotting are decoupled. A new physics system needs only `input/<System>_input.py` and a one-line change in `main.py`.
 
@@ -117,7 +117,7 @@ lattice_scattering/
 
 | Variable | Type / shape |
 |----------|----------------|
-| `raw` | `RawCorrelators` — meson `[ch, mom, t, sample]`, tetraquark `[ch_s, mom_s, ch_n, mom_n, t, sample]`; `sample` = 400 gauge configs |
+| `raw` | `RawCorrelators` — meson `[ch, mom, t, sample]`, tetraquark `[ch_src, mom_src, ch_snk, mom_snk, t, sample]`; `sample` = 400 gauge configs |
 | `corr` | `AnalysisCorrelators` — both branches 4D after GEVP |
 | `resampled` | Per-configuration `En` and meson \(\xi\) from jackknife/bootstrap |
 | `en_fit_list` / `disp_fit_list` | Effective-mass / dispersion fit results |
@@ -125,22 +125,34 @@ lattice_scattering/
 
 `mom` is the momentum quantum number \(n^2\) used as an **array index** (not a sequential 0…N−1 label). Channel/momentum lists come from `chan_momt_list` in `ENSEMBLE_DB`.
 
-### Output PDF naming
+### Output figure naming
+
+Extension comes from `plot_format` in `InputControl` (default **`png`**). Below, `{ext}` = `png` or `pdf`.
 
 | Plot | Filename pattern | Scope |
 |------|------------------|-------|
-| GEVP matrix / eigenvector | `GEVP_{before,after,eigenvector}_L{Ns}M{M}_EV{EV}.pdf` | Single ensemble (`lattice_Ns`) |
-| Effective mass | `En_{meson,tetraquark}_L{Ns}M{M}_EV{EV}.pdf` | Single ensemble |
-| Overlap / dispersion | `Zn_meson_*`, `Dispersion_meson_*` | Single ensemble (meson mode) |
-| Scattering | `K_s_scattering.pdf`, `kcot_scattering.pdf` | **Cross-ensemble** (`Ns_list`; no `L/M/EV` tag) |
+| GEVP matrix / eigenvector | `GEVP_{before,after,eigenvector}_L{Ns}M{M}_EV{EV}.{ext}` | Single ensemble (`lattice_Ns`) |
+| Effective mass | `En_{meson,tetraquark}_L{Ns}M{M}_EV{EV}.{ext}` | Single ensemble |
+| Overlap / dispersion | `Zn_meson_*.{ext}`, `Dispersion_meson_*.{ext}` | Single ensemble (meson mode) |
+| Scattering | `K_s_scattering.{ext}`, `kcot_scattering.{ext}` | **Cross-ensemble** (`Ns_list`; no `L/M/EV` tag) |
 
-Each plot save writes one file: `{stem}.{plot_format}` (`plot_format` in `InputControl`, default `"png"`).
+### `main.py` execution order
+
+1. `BuildConfig("Tcccc6600").build_config_from_control()`
+2. `read_file()` — raw correlators; resampled files if `run_scattering=True`
+3. `process_GEVP()` + GEVP plots — tetraquark mode only, if `is_gevp=True`
+4. `effective_mass()` — **always runs** (stdout diagnostics)
+5. `En_*` plot — if `plot_meff=True`; `Zn_meson_*` only if `is_meson_analysis=True`
+6. Dispersion fit + plot — if `plot_dispersion=True` and meson mode
+7. Scattering + `K_s_scattering.*`, `kcot_scattering.*` — if `run_scattering=True` and tetraquark mode
+
+Meson and tetraquark modes are **mutually exclusive** (tetraquark wins if both are set). Scattering needs prior meson resample runs for all `Ns_list` volumes — see [docs/RUNNING.md](docs/RUNNING.md).
 
 ---
 
 ## Example Results
 
-Per-ensemble figures below use **\(L=12\)** (`L12M420_EV170`) as examples. Full PDFs for \(L=12\) and \(L=16\) are in [`result/Tcccc6600/`](result/Tcccc6600/). Scattering plots combine both volumes and are saved as `K_s_scattering.pdf` / `kcot_scattering.pdf`.
+Per-ensemble figures below use **\(L=12\)** (`L12M420_EV170`) as examples. All outputs live in [`result/Tcccc6600/`](result/Tcccc6600/) (default **`plot_format="png"`**). Scattering plots combine \(L=12\) and \(L=16\) into `K_s_scattering.*` / `kcot_scattering.*`. Meson \(Z_n\) / dispersion figures require a separate meson-mode run.
 
 ### GEVP (before / after diagonalization)
 
@@ -207,6 +219,7 @@ is_tetraquark_analysis: bool = True   # default workflow (mutually exclusive wit
 is_gevp: bool = True
 run_scattering: bool = True
 plot_meff: bool = True
+plot_dispersion: bool = True          # meson mode only
 plot_format: str = "png"              # "png" or "pdf"
 resample_type: str = "jackknife"      # or "bootstrap"
 ```
@@ -228,7 +241,7 @@ Scattering combines both volumes via `Ns_list = [12, 16]`.
 |---------|----------------|
 | Analysis source code | Yes |
 | Configuration (`input/Tcccc6600_input.py`) | Yes |
-| Result PDFs + PNG previews (`result/Tcccc6600/`) | Yes |
+| Result figures (`result/Tcccc6600/`, format set by `plot_format`) | Yes |
 | Raw correlators (`data/**/raw/*.npy`) | **No** (~80 MB) |
 | Resampled energies (`data/**/resampled/*.npy`) | **No** |
 
@@ -251,8 +264,8 @@ Scattering combines both volumes via `Ns_list = [12, 16]`.
 ## Notes
 
 - Plotting calls `plt.show()`; on headless clusters set matplotlib backend `Agg` (see [docs/RUNNING.md](docs/RUNNING.md)).
-- Fit error bands use semi-transparent `fill_between` (`FIT_CURVE_ALPHA=0.25`, `zorder` below data points); adjust in `plotting/plot_set.py` if needed.
-- Analysis modes are mutually exclusive: tetraquark wins if both meson and tetraquark flags are set. Meson \(Z_n\) / dispersion require a separate run with `is_meson_analysis=True`.
+- Draw order: error band → fit curve → data points → legend (`ZORDER_*` in `plotting/plot_set.py`). Fit bands use `fill_between` with `FIT_CURVE_ALPHA` (default **0.3**).
+- Analysis modes are mutually exclusive: tetraquark wins if both meson and tetraquark flags are set. Meson \(Z_n\) / dispersion require a separate run with `is_meson_analysis=True`, `is_tetraquark_analysis=False`.
 - Tetraquark + scattering needs resampled meson energies and \(\xi\) from prior meson resample runs.
 
 ---
