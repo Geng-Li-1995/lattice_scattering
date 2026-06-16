@@ -5,9 +5,10 @@ from plotting.plot_set import (
     COLORS,
     ERRORBAR_KW,
     FIG_STANDARD,
+    ZORDER_AUX_LINE,
+    ZORDER_FIT_CURVE,
     add_legend,
     apply_plot_style,
-    blend_on_white,
     label_axes,
     new_figure,
     plot_gvar_band,
@@ -33,18 +34,18 @@ class ScatteringPlotter:
             return
 
         new_figure(FIG_STANDARD)
+        ref_ns = self.config.scattering_list[0][0]
+        plot_gvar_band(scattering_dict["s_array"][ref_ns], scattering_dict["fit_Ks_curve"])
+
         for ensemble_idx, ensemble_key in enumerate(self.config.scattering_list):
             ns = ensemble_key[0]
             color = COLORS[ensemble_idx]
             s_pts, ks_pts = scattering_dict["s"][ns], scattering_dict["Ks"][ns]
-
             plt.errorbar(
                 s_pts[:, 0], ks_pts[:, 0],
                 xerr=s_pts[:, 1], yerr=ks_pts[:, 1],
                 fmt="x", color=color, label=f"L{ns}", **ERRORBAR_KW,
             )
-            if ensemble_idx == 0:
-                plot_gvar_band(scattering_dict["s_array"][ns], scattering_dict["fit_Ks_curve"])
 
         plt.axhline(0, color="black")
         plt.axvline(0, color="black")
@@ -59,6 +60,9 @@ class ScatteringPlotter:
             return
 
         new_figure(FIG_STANDARD)
+        ref_ns = self.config.scattering_list[0][0]
+        plot_gvar_band(scattering_dict["k_sq_array"][ref_ns], scattering_dict["fit_kcot_curve"])
+
         for ensemble_idx, ensemble_key in enumerate(self.config.scattering_list):
             ns = ensemble_key[0]
             color = COLORS[ensemble_idx]
@@ -69,18 +73,19 @@ class ScatteringPlotter:
 
             plt.plot(
                 k_sq_grid, kcot_rest_grid,
-                color=blend_on_white(color, 0.3), linestyle="--",
+                color=color, linestyle="--", alpha=0.3, zorder=ZORDER_AUX_LINE,
             )
             for m, e in zip(k_sq_mean, k_sq_err):
                 mask = (k_sq_grid >= m - e) & (k_sq_grid <= m + e)
-                plt.plot(k_sq_grid[mask], kcot_rest_grid[mask], color=color, linestyle="-")
+                plt.plot(
+                    k_sq_grid[mask], kcot_rest_grid[mask],
+                    color=color, linestyle="-", zorder=ZORDER_FIT_CURVE,
+                )
 
             plt.errorbar(
                 k_sq_mean, scattering_dict["kcot"][ns][:, 0], xerr=k_sq_err,
                 fmt="x", color=color, label=f"L{ns}", **ERRORBAR_KW,
             )
-            if ensemble_idx == 0:
-                plot_gvar_band(k_sq_grid, scattering_dict["fit_kcot_curve"])
 
         plt.axhline(0, color="black")
         plt.axvline(0, color="black")

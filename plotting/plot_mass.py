@@ -16,6 +16,7 @@ from plotting.plot_set import (
     FIG_WIDE,
     LINESTYLES,
     MARKERS,
+    ZORDER_FIT_CURVE,
     add_legend,
     apply_plot_style,
     fill_error_band,
@@ -63,17 +64,6 @@ class MassPlotter:
         for ch_idx, mom_list in enumerate(self.chan_momt_list):
             en_by_ch[ch_idx] = []
             for mom in mom_list:
-                mean, err = self._cosh_with_error(data.at(ch_idx, mom))
-                plt.errorbar(
-                    np.arange(self.lattice_Nt),
-                    mean * self.at_invs,
-                    err * self.at_invs,
-                    fmt=MARKERS[ch_idx],
-                    color=COLORS[mom],
-                    label=rf"${self.chan_name_list[ch_idx]}(n^2={mom})$",
-                    **ERRORBAR_KW,
-                )
-
                 mass_fit = en_lookup[(ch_idx, mom)]
                 t_min = self.config.t_min[ch_idx][mom]
                 t_max = self.config.t_max[ch_idx][mom]
@@ -84,9 +74,25 @@ class MassPlotter:
                 )
                 m = gv.mean(cosh_fit) * self.at_invs
                 s = gv.sdev(cosh_fit) * self.at_invs
-                plt.plot(t_fit, m, linestyle=LINESTYLES[ch_idx], color=COLORS[mom], zorder=5)
                 fill_error_band(t_fit, m - s, m + s, COLORS[mom])
+                plt.plot(
+                    t_fit, m,
+                    linestyle=LINESTYLES[ch_idx], color=COLORS[mom], zorder=ZORDER_FIT_CURVE,
+                )
                 en_by_ch[ch_idx].append(mass_fit.p["meff_0"] * self.at_invs)
+
+        for ch_idx, mom_list in enumerate(self.chan_momt_list):
+            for mom in mom_list:
+                mean, err = self._cosh_with_error(data.at(ch_idx, mom))
+                plt.errorbar(
+                    np.arange(self.lattice_Nt),
+                    mean * self.at_invs,
+                    err * self.at_invs,
+                    fmt=MARKERS[ch_idx],
+                    color=COLORS[mom],
+                    label=rf"${self.chan_name_list[ch_idx]}(n^2={mom})$",
+                    **ERRORBAR_KW,
+                )
 
         all_en = np.concatenate([np.array(vals) for vals in en_by_ch.values()])
         label_axes(r"$t/a_t$", rf"$E_n$ (GeV) on {self.tag_name}")
@@ -105,14 +111,9 @@ class MassPlotter:
 
         for ch_idx, mom_list in enumerate(self.chan_momt_list):
             ref_weff = en_lookup[(ch_idx, mom_list[0])].p["weff_0"]
-            zn_list = []
-            for mom in mom_list:
-                zn = en_lookup[(ch_idx, mom)].p["weff_0"] / ref_weff
-                zn_list.append(zn)
-                plt.errorbar(
-                    mom, gv.mean(zn), gv.sdev(zn),
-                    fmt=MARKERS[ch_idx], color=COLORS[ch_idx], **ERRORBAR_KW,
-                )
+            zn_list = [
+                en_lookup[(ch_idx, mom)].p["weff_0"] / ref_weff for mom in mom_list
+            ]
 
             zn_fit = lsf.nonlinear_fit(
                 data=(np.array(mom_list), np.array(zn_list)),
@@ -124,8 +125,17 @@ class MassPlotter:
             m = gv.mean(y_fit)
             s = gv.sdev(y_fit)
             color = COLORS[ch_idx]
-            plt.plot(x, m, linestyle=LINESTYLES[ch_idx], color=color, zorder=5)
             fill_error_band(x, m - s, m + s, color)
+            plt.plot(x, m, linestyle=LINESTYLES[ch_idx], color=color, zorder=ZORDER_FIT_CURVE)
+
+        for ch_idx, mom_list in enumerate(self.chan_momt_list):
+            ref_weff = en_lookup[(ch_idx, mom_list[0])].p["weff_0"]
+            for mom in mom_list:
+                zn = en_lookup[(ch_idx, mom)].p["weff_0"] / ref_weff
+                plt.errorbar(
+                    mom, gv.mean(zn), gv.sdev(zn),
+                    fmt=MARKERS[ch_idx], color=COLORS[ch_idx], **ERRORBAR_KW,
+                )
 
         label_axes(r"$n^2$", rf"$Z_n/Z_0$ on {self.tag_name}")
         plt.xlim(0, mom_max)
@@ -150,6 +160,15 @@ class MassPlotter:
                 (en_lookup[(ch_idx, mom)].p["meff_0"] * self.at_invs) ** 2
                 for mom in mom_list
             ]
+            x = np.linspace(0, mom_max, 100)
+            y_fit = MathModels.linear(x, disp_lookup[ch_idx].p)
+            m = gv.mean(y_fit)
+            s = gv.sdev(y_fit)
+            color = COLORS[ch_idx]
+            fill_error_band(x, m - s, m + s, color)
+            plt.plot(x, m, linestyle=LINESTYLES[ch_idx], color=color, zorder=ZORDER_FIT_CURVE)
+
+        for ch_idx, mom_list in enumerate(self.chan_momt_list):
             y, yerr = gv.mean(en_sq_by_ch[ch_idx]), gv.sdev(en_sq_by_ch[ch_idx])
             plt.errorbar(
                 mom_list, y, yerr,
@@ -157,13 +176,6 @@ class MassPlotter:
                 label=rf"${self.chan_name_list[ch_idx]}$",
                 **ERRORBAR_KW,
             )
-            x = np.linspace(0, mom_max, 100)
-            y_fit = MathModels.linear(x, disp_lookup[ch_idx].p)
-            m = gv.mean(y_fit)
-            s = gv.sdev(y_fit)
-            color = COLORS[ch_idx]
-            plt.plot(x, m, linestyle=LINESTYLES[ch_idx], color=color, zorder=5)
-            fill_error_band(x, m - s, m + s, color)
 
         label_axes(r"$n^2$", rf"$E_n^2$ (GeV$^2$) on {self.tag_name}")
         plt.xlim(0, mom_max)

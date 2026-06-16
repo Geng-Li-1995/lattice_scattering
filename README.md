@@ -251,7 +251,7 @@ Scattering combines both volumes via `Ns_list = [12, 16]`.
 ## Notes
 
 - Plotting calls `plt.show()`; on headless clusters set matplotlib backend `Agg` (see [docs/RUNNING.md](docs/RUNNING.md)).
-- PDF fit error bands: solid pre-blended colors + rasterized fill (`plot_set.fill_error_band`); adjust `FIT_CURVE_ALPHA` in `plotting/plot_set.py` if bands look too faint or too strong.
+- Fit error bands use semi-transparent `fill_between` (`FIT_CURVE_ALPHA=0.25`, `zorder` below data points); adjust in `plotting/plot_set.py` if needed.
 - Analysis modes are mutually exclusive: tetraquark wins if both meson and tetraquark flags are set. Meson \(Z_n\) / dispersion require a separate run with `is_meson_analysis=True`.
 - Tetraquark + scattering needs resampled meson energies and \(\xi\) from prior meson resample runs.
 
