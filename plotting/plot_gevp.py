@@ -26,7 +26,10 @@ class GEVPPlotter:
         self.t0, self.t1, self.tx = config.t_GEVP
 
     def _save(self, name: str) -> None:
-        save_figure(f"result/{self.input_name}/{name}_{self.tag_name}.pdf")
+        save_figure(
+            f"result/{self.input_name}/{name}_{self.tag_name}",
+            plot_format=self.config.plot_format,
+        )
 
     def _fve_labels(self) -> list[str]:
         return [

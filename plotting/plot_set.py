@@ -55,10 +55,22 @@ ERRORBAR_KW = dict(
     capthick=1,
     markeredgecolor="black",
     markerfacecolor="white",
+    zorder=4,
 )
 
 FIT_CURVE_COLOR = "green"
-FIT_CURVE_ALPHA = 0.2
+FIT_CURVE_ALPHA = 0.3  # pre-blended onto white;
+MAX_BAND_POINTS = 2000
+PLOT_FORMATS = ("png", "pdf")
+
+
+def _as_float_array(y) -> np.ndarray:
+    if isinstance(y, (int, float, np.floating)):
+        return np.array([float(y)], dtype=float)
+    try:
+        return np.asarray(gv.mean(y), dtype=float)
+    except (TypeError, ValueError, AttributeError):
+        return np.asarray(y, dtype=float)
 
 
 def blend_on_white(color, alpha: float = 1.0) -> str:
@@ -68,9 +80,34 @@ def blend_on_white(color, alpha: float = 1.0) -> str:
     return mcolors.to_hex(np.clip(blended, 0.0, 1.0))
 
 
-def fill_error_band(x, ylo, yhi, color, alpha: float = FIT_CURVE_ALPHA) -> None:
-    """Shaded error band using a solid pre-blended color (reliable in PDF)."""
-    plt.fill_between(x, ylo, yhi, color=blend_on_white(color, alpha))
+def fill_error_band(
+    x,
+    ylo,
+    yhi,
+    color,
+    alpha: float = FIT_CURVE_ALPHA,
+    zorder: int = 2,
+) -> None:
+    """Shaded error band: solid color, no PDF alpha, drawn under data curves."""
+    ax = plt.gca()
+    x = _as_float_array(x)
+    ylo = _as_float_array(ylo)
+    yhi = _as_float_array(yhi)
+    if len(x) > MAX_BAND_POINTS:
+        idx = np.linspace(0, len(x) - 1, MAX_BAND_POINTS, dtype=int)
+        x, ylo, yhi = x[idx], ylo[idx], yhi[idx]
+    poly = ax.fill_between(
+        x,
+        ylo,
+        yhi,
+        facecolor=blend_on_white(color, alpha),
+        edgecolor="none",
+        linewidth=0,
+        zorder=zorder,
+        antialiased=True,
+        rasterized=True,
+    )
+    poly.set_rasterized(True)
 
 
 def apply_plot_style() -> None:
@@ -92,9 +129,15 @@ def add_legend(loc: str, ncol: int = 1) -> None:
     plt.legend(loc=loc, ncol=ncol)
 
 
-def save_figure(path: str) -> None:
+def save_figure(stem: str, *, plot_format: str = "png") -> None:
+    """Save the current figure; *stem* is the path without extension."""
+    if plot_format not in PLOT_FORMATS:
+        raise ValueError(f'plot_format must be one of {PLOT_FORMATS}, got {plot_format!r}')
     plt.tight_layout()
-    plt.savefig(path, format="pdf")
+    if plot_format == "pdf":
+        plt.savefig(f"{stem}.pdf", format="pdf", dpi=300)
+    else:
+        plt.savefig(f"{stem}.png", format="png", dpi=150)
     plt.show()
 
 
@@ -104,8 +147,11 @@ def plot_gvar_band(
     *,
     color: str = FIT_CURVE_COLOR,
     alpha: float = FIT_CURVE_ALPHA,
+    zorder: int = 2,
 ) -> None:
-    mean = gv.mean(curve)
-    err = gv.sdev(curve)
-    plt.plot(x, mean, color=color, linestyle="-")
-    fill_error_band(x, mean - err, mean + err, color, alpha=alpha)
+    mean = _as_float_array(curve)
+    err = _as_float_array(gv.sdev(curve))
+    x = _as_float_array(x)
+    ax = plt.gca()
+    ax.plot(x, mean, color=color, linestyle="-", zorder=zorder + 2)
+    fill_error_band(x, mean - err, mean + err, color, alpha=alpha, zorder=zorder)

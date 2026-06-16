@@ -21,10 +21,12 @@ class ScatteringPlotter:
         apply_plot_style()
         self.config = config
         self.input_name = config.input_name
-        self.tag_name = config.tag_name
 
     def _save(self, name: str) -> None:
-        save_figure(f"result/{self.input_name}/{name}_scattering_{self.tag_name}.pdf")
+        save_figure(
+            f"result/{self.input_name}/{name}_scattering",
+            plot_format=self.config.plot_format,
+        )
 
     def plot_Ks(self, scattering_dict: dict) -> None:
         if not self.config.is_tetraquark_analysis:

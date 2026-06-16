@@ -44,6 +44,7 @@ class Config:
 
     plot_meff: bool
     plot_dispersion: bool
+    plot_format: str
 
     resample_type: str
     sample_axis: int
@@ -137,6 +138,7 @@ class BuildConfig:
             run_scattering=ctrl.run_scattering,
             plot_meff=ctrl.plot_meff,
             plot_dispersion=ctrl.plot_dispersion,
+            plot_format=ctrl.plot_format,
             resample_type=ctrl.resample_type,
             sample_axis=ctrl.sample_axis,
             n_boot=ctrl.n_boot,

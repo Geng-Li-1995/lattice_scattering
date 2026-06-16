@@ -77,7 +77,7 @@ Monte Carlo correlators          data/<system>/raw/*.npy
 | Jackknife / bootstrap resampling | `statistics/` | `data/<system>/resampled/*.npy` |
 | Lüscher zeta scattering | `analysis/scattering.py` | `scattering_dict` → \(K(s)\), \(k\cot\delta_0\) |
 | Unified plot styling | `plotting/plot_set.py` | TeX fonts, RC params, `save_figure()` |
-| PDF figures | `plotting/plot_*.py` | `result/<system>/*.pdf` |
+| PDF figures | `plotting/plot_*.py` | `result/<system>/*.pdf` (see naming below) |
 
 **Design:** configuration, I/O, analysis, statistics, and plotting are decoupled. A new physics system needs only `input/<System>_input.py` and a one-line change in `main.py`.
 
@@ -125,44 +125,55 @@ lattice_scattering/
 
 `mom` is the momentum quantum number \(n^2\) used as an **array index** (not a sequential 0…N−1 label). Channel/momentum lists come from `chan_momt_list` in `ENSEMBLE_DB`.
 
+### Output PDF naming
+
+| Plot | Filename pattern | Scope |
+|------|------------------|-------|
+| GEVP matrix / eigenvector | `GEVP_{before,after,eigenvector}_L{Ns}M{M}_EV{EV}.pdf` | Single ensemble (`lattice_Ns`) |
+| Effective mass | `En_{meson,tetraquark}_L{Ns}M{M}_EV{EV}.pdf` | Single ensemble |
+| Overlap / dispersion | `Zn_meson_*`, `Dispersion_meson_*` | Single ensemble (meson mode) |
+| Scattering | `K_s_scattering.pdf`, `kcot_scattering.pdf` | **Cross-ensemble** (`Ns_list`; no `L/M/EV` tag) |
+
+Each plot save writes one file: `{stem}.{plot_format}` (`plot_format` in `InputControl`, default `"png"`).
+
 ---
 
 ## Example Results
 
-Representative outputs for **\(L=12\)** (`L12M420_EV170`). Full PDFs for \(L=12\) and \(L=16\) are in [`result/Tcccc6600/`](result/Tcccc6600/).
+Per-ensemble figures below use **\(L=12\)** (`L12M420_EV170`) as examples. Full PDFs for \(L=12\) and \(L=16\) are in [`result/Tcccc6600/`](result/Tcccc6600/). Scattering plots combine both volumes and are saved as `K_s_scattering.pdf` / `kcot_scattering.pdf`.
 
 ### GEVP (before / after diagonalization)
 
 <p align="center">
-  <img src="docs/figures/GEVP_before_L12.png" alt="GEVP matrix before diagonalization" width="48%" />
-  <img src="docs/figures/GEVP_after_L12.png" alt="GEVP matrix after diagonalization" width="48%" />
+  <img src="result/Tcccc6600/GEVP_before_L12M420_EV170.png" alt="GEVP matrix before diagonalization" width="48%" />
+  <img src="result/Tcccc6600/GEVP_after_L12M420_EV170.png" alt="GEVP matrix after diagonalization" width="48%" />
 </p>
 
 ### GEVP eigenvectors
 
 <p align="center">
-  <img src="docs/figures/GEVP_eigenvector_L12.png" alt="GEVP eigenvectors" width="55%" />
+  <img src="result/Tcccc6600/GEVP_eigenvector_L12M420_EV170.png" alt="GEVP eigenvectors" width="55%" />
 </p>
 
 ### Effective mass \(E_n\)
 
 <p align="center">
-  <img src="docs/figures/En_tetraquark_L12.png" alt="Tetraquark effective mass" width="48%" />
-  <img src="docs/figures/En_meson_L12.png" alt="Meson effective mass" width="48%" />
+  <img src="result/Tcccc6600/En_tetraquark_L12M420_EV170.png" alt="Tetraquark effective mass" width="48%" />
+  <img src="result/Tcccc6600/En_meson_L12M420_EV170.png" alt="Meson effective mass" width="48%" />
 </p>
 
 ### Overlap factors \(Z_n/Z_0\) and dispersion \(E_n^2\)
 
 <p align="center">
-  <img src="docs/figures/Zn_meson_L12.png" alt="Overlap factors Zn" width="48%" />
-  <img src="docs/figures/Dispersion_meson_L12.png" alt="Dispersion relation" width="48%" />
+  <img src="result/Tcccc6600/Zn_meson_L12M420_EV170.png" alt="Overlap factors Zn" width="48%" />
+  <img src="result/Tcccc6600/Dispersion_meson_L12M420_EV170.png" alt="Dispersion relation" width="48%" />
 </p>
 
-### Scattering observables
+### Scattering observables (cross-ensemble: \(L=12+16\))
 
 <p align="center">
-  <img src="docs/figures/K_s_scattering_L12.png" alt="Scattering K(s)" width="48%" />
-  <img src="docs/figures/kcot_scattering_L12.png" alt="k cot delta_0" width="48%" />
+  <img src="result/Tcccc6600/K_s_scattering.png" alt="Scattering K(s)" width="48%" />
+  <img src="result/Tcccc6600/kcot_scattering.png" alt="k cot delta_0" width="48%" />
 </p>
 
 ---
@@ -196,6 +207,7 @@ is_tetraquark_analysis: bool = True   # default workflow (mutually exclusive wit
 is_gevp: bool = True
 run_scattering: bool = True
 plot_meff: bool = True
+plot_format: str = "png"              # "png" or "pdf"
 resample_type: str = "jackknife"      # or "bootstrap"
 ```
 
@@ -216,8 +228,7 @@ Scattering combines both volumes via `Ns_list = [12, 16]`.
 |---------|----------------|
 | Analysis source code | Yes |
 | Configuration (`input/Tcccc6600_input.py`) | Yes |
-| Result PDFs (`result/Tcccc6600/`) | Yes |
-| README preview PNGs (`docs/figures/`) | Yes |
+| Result PDFs + PNG previews (`result/Tcccc6600/`) | Yes |
 | Raw correlators (`data/**/raw/*.npy`) | **No** (~80 MB) |
 | Resampled energies (`data/**/resampled/*.npy`) | **No** |
 
@@ -240,6 +251,7 @@ Scattering combines both volumes via `Ns_list = [12, 16]`.
 ## Notes
 
 - Plotting calls `plt.show()`; on headless clusters set matplotlib backend `Agg` (see [docs/RUNNING.md](docs/RUNNING.md)).
+- PDF fit error bands: solid pre-blended colors + rasterized fill (`plot_set.fill_error_band`); adjust `FIT_CURVE_ALPHA` in `plotting/plot_set.py` if bands look too faint or too strong.
 - Analysis modes are mutually exclusive: tetraquark wins if both meson and tetraquark flags are set. Meson \(Z_n\) / dispersion require a separate run with `is_meson_analysis=True`.
 - Tetraquark + scattering needs resampled meson energies and \(\xi\) from prior meson resample runs.
 

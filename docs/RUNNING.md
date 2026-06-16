@@ -102,6 +102,7 @@ class InputControl:
     run_resample: bool = False        # set automatically by run_resample.py
     plot_meff: bool = True            # En and Zn plots
     plot_dispersion: bool = True      # dispersion fit + plot (meson only)
+    plot_format: str = "png"          # figure output: "png" or "pdf"
     resample_type: str = "jackknife"  # or "bootstrap"
 
     # Scattering channel indices and K(s) fit momentum subsets
@@ -123,6 +124,7 @@ class InputControl:
 | `run_scattering` | Computes \(K_s\) and \(k\cot\delta\) (needs `resampled/` files and tetraquark mode) |
 | `plot_meff` | Plot effective-mass \(E_n\) and (for meson runs) \(Z_n/Z_0\) |
 | `plot_dispersion` | Fit and plot dispersion relation (meson mode only) |
+| `plot_format` | Output figure format: `"png"` (default) or `"pdf"` |
 
 **Analysis mode (mutually exclusive):** `InputControl.__post_init__` resolves conflicts — if both `is_meson_analysis` and `is_tetraquark_analysis` are `True`, **tetraquark wins**. For meson-only runs, set `is_meson_analysis=True`, `is_tetraquark_analysis=False`.
 
@@ -175,7 +177,7 @@ Default execution order (with default **tetraquark** mode):
 4. Effective-mass fit — **always runs**; `En_<type>_<tag>.pdf` if `plot_meff=True`
 5. `Zn_meson_<tag>.pdf` if `plot_meff=True` and meson mode
 6. Dispersion fit + `Dispersion_meson_<tag>.pdf` if `plot_dispersion=True` and meson mode
-7. Scattering analysis → `K_s_scattering_<tag>.pdf`, `kcot_scattering_<tag>.pdf` if `run_scattering=True` and tetraquark mode
+7. Scattering analysis → `K_s_scattering.pdf`, `kcot_scattering.pdf` if `run_scattering=True` and tetraquark mode
 
 For meson \(Z_n\) and dispersion figures, run separately with `is_meson_analysis=True`, `is_tetraquark_analysis=False` (and `run_scattering=False` if scattering is not needed).
 
@@ -202,8 +204,8 @@ result/Tcccc6600/
 ├── GEVP_after_L12M420_EV170.pdf
 ├── GEVP_eigenvector_L12M420_EV170.pdf
 ├── En_tetraquark_L12M420_EV170.pdf
-├── K_s_scattering_L12M420_EV170.pdf
-└── kcot_scattering_L12M420_EV170.pdf
+├── K_s_scattering.pdf
+└── kcot_scattering.pdf
 ```
 
 Meson-only runs additionally produce `Zn_meson_<tag>.pdf` and `Dispersion_meson_<tag>.pdf`.

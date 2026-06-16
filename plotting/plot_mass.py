@@ -45,7 +45,10 @@ class MassPlotter:
         return get_resampler(self.config, cosh_samples).gvar()
 
     def _save(self, name: str) -> None:
-        save_figure(f"result/{self.input_name}/{name}_{self.corr_type}_{self.tag_name}.pdf")
+        save_figure(
+            f"result/{self.input_name}/{name}_{self.corr_type}_{self.tag_name}",
+            plot_format=self.config.plot_format,
+        )
 
     def plot_En(self, corr: AnalysisCorrelators, en_fit_list: FitResultList) -> None:
         selector = SelectorType(self.config, corr)
@@ -81,7 +84,7 @@ class MassPlotter:
                 )
                 m = gv.mean(cosh_fit) * self.at_invs
                 s = gv.sdev(cosh_fit) * self.at_invs
-                plt.plot(t_fit, m, linestyle=LINESTYLES[ch_idx], color=COLORS[mom])
+                plt.plot(t_fit, m, linestyle=LINESTYLES[ch_idx], color=COLORS[mom], zorder=5)
                 fill_error_band(t_fit, m - s, m + s, COLORS[mom])
                 en_by_ch[ch_idx].append(mass_fit.p["meff_0"] * self.at_invs)
 
@@ -121,7 +124,7 @@ class MassPlotter:
             m = gv.mean(y_fit)
             s = gv.sdev(y_fit)
             color = COLORS[ch_idx]
-            plt.plot(x, m, linestyle=LINESTYLES[ch_idx], color=color)
+            plt.plot(x, m, linestyle=LINESTYLES[ch_idx], color=color, zorder=5)
             fill_error_band(x, m - s, m + s, color)
 
         label_axes(r"$n^2$", rf"$Z_n/Z_0$ on {self.tag_name}")
@@ -159,7 +162,7 @@ class MassPlotter:
             m = gv.mean(y_fit)
             s = gv.sdev(y_fit)
             color = COLORS[ch_idx]
-            plt.plot(x, m, linestyle=LINESTYLES[ch_idx], color=color)
+            plt.plot(x, m, linestyle=LINESTYLES[ch_idx], color=color, zorder=5)
             fill_error_band(x, m - s, m + s, color)
 
         label_axes(r"$n^2$", rf"$E_n^2$ (GeV$^2$) on {self.tag_name}")

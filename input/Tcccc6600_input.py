@@ -30,11 +30,14 @@ class InputControl:
     is_ratio: bool = False
 
     run_tmin: bool = False
-    run_resample: bool = False  # set by run_resample.py; suppresses plots during resampling
+    run_resample: bool = (
+        False  # set by run_resample.py; suppresses plots during resampling
+    )
     run_scattering: bool = True
 
-    plot_meff: bool = True          # En / Zn plots (fit always runs)
-    plot_dispersion: bool = True    # dispersion fit + plot (meson mode only)
+    plot_meff: bool = True  # En / Zn plots (fit always runs)
+    plot_dispersion: bool = True  # dispersion fit + plot (meson mode only)
+    plot_format: str = "png"  # figure output: "png" or "pdf"
 
     resample_type: str = "jackknife"
     sample_axis: int = -1
@@ -54,6 +57,10 @@ class InputControl:
 
     def __post_init__(self):
         """Initialize lattice parameters based on lattice_Ns."""
+        if self.plot_format not in ("png", "pdf"):
+            raise ValueError(
+                f'plot_format must be "png" or "pdf", got {self.plot_format!r}'
+            )
         if self.is_meson_analysis and self.is_tetraquark_analysis:
             self.is_meson_analysis = False
         elif self.is_meson_analysis:
