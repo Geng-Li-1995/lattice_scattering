@@ -1,22 +1,35 @@
-# Lattice QCD Scattering Analysis Pipeline
+# Lattice QCD Tetraquark Scattering Pipeline
 
-**End-to-end Python pipeline for lattice QCD spectroscopy and finite-volume scattering analysis** — ingests large Monte Carlo correlation-function datasets, performs generalized eigenvalue decomposition (GEVP), Bayesian multi-state fits, and Lüscher scattering extraction with full statistical error propagation.
+**Config-driven Python pipeline for lattice QCD tetraquark spectroscopy and finite-volume scattering analysis** — ingests large Monte Carlo correlation-function datasets, performs generalized eigenvalue decomposition (GEVP), Bayesian multi-state fits, jackknife/bootstrap resampling, and Lüscher scattering extraction with full statistical error propagation.
 
-**Showcase system:** fully-charm tetraquark **Tcccc6600** (\(\eta_c\eta_c\), \(J/\psi\,J/\psi\)) on \(N_f=2\) anisotropic ensembles (\(L=12,16\), \(N_t=96/128\), \(m_\pi\approx 420\) MeV, **400 gauge configurations** per volume, **120–170 distillation eigenvectors** depending on \(L\)).
+The same code path is shared by multiple four-quark systems. System-specific physics choices live in `input/input_<System>.py`: channel names, momentum lists, ensemble metadata, fit windows, priors, scattering channels, and resampling/scattering switches.
+
+**Showcase system:** fully-charm tetraquark **Tcccc6600** (\(\eta_c\eta_c\), \(J/\psi\,J/\psi\)) on \(N_f=2\) anisotropic ensembles (\(L=12,16\), \(N_t=96/128\), \(m_\pi\approx 420\) MeV, **400 gauge configurations** per volume, **120–170 distillation eigenvectors** depending on \(L\), \(a_t^{-1}=7.219\) GeV).
 
 ---
 
 ## Supported Systems
 
-The repository includes input configurations for three physics systems. Switch systems by changing the system name passed to `BuildConfig(...)` in `main.py`.
+The repository includes input configurations for three tetraquark scattering systems. Switch systems by changing the system name passed to `BuildConfig(...)` in `main.py`; the analysis modules and plotting code do not need system-specific edits.
 
-| System | Input file | Ensembles in config | Notes |
-|--------|------------|---------------------|-------|
-| `Tcccc6600` | `input/input_Tcccc6600.py` | \(L=12,16\), \(m_\pi=420\), EV \(170/120\) | Fully-charm showcase system; example figures are tracked |
-| `X3872` | `input/input_X3872.py` | \(L=16\), \(m_\pi=420\), EV \(70\) | Charmonium-like scattering setup; current default in `main.py` |
-| `Zc3900` | `input/input_Zc3900.py` | \(L=16\), \(m_\pi=420\), EV \(70\) | Charged charmonium-like scattering setup |
+| System | Input file | Ensembles in config | Channel setup | Example raw correlator dimensions |
+|--------|------------|---------------------|---------------|-----------------------------------|
+| `Tcccc6600` | `input/input_Tcccc6600.py` | \(L=12,16\), \(m_\pi=420\), EV \(170/120\), \(a_t^{-1}=7.219\) GeV | \(\eta_c\eta_c\), \(J/\psi J/\psi\) | meson `[2, 10, Nt, 400]`; tetraquark `[2, 5, 2, 5, Nt, 400]` |
+| `X3872` | `input/input_X3872.py` | \(L=16\), \(m_\pi=420\), EV \(70\), \(a_t^{-1}=7.219\) GeV | \(\pi J/\psi\), \(\rho\eta_c\), \(DD^*\), \(D^*D^*\) | meson `[6, 5, Nt, Ncfg]`; tetraquark `[4, 2, 4, 2, Nt, Ncfg]` |
+| `Zc3900` | `input/input_Zc3900.py` | \(L=16\), \(m_\pi=420\), EV \(70\), \(a_t^{-1}=7.219\) GeV | \(\pi J/\psi\), \(\rho\eta_c\), \(DD^*\), \(D^*D^*\) | meson `[6, 5, Nt, Ncfg]`; tetraquark `[4, 2, 4, 2, Nt, Ncfg]` |
 
 Only source code, input files, docs, and selected result figures are versioned. Raw correlator and resampled `.npy` data for all systems must be provided locally under `data/<system>/`; they are intentionally ignored by git and are not synchronized to GitHub.
+
+### Adapting Another Tetraquark System
+
+To add or retune a four-quark system, copy an existing `input/input_<System>.py` and update:
+
+- `InputControl`: default ensemble, analysis/resampling/scattering switches, scattering channel indices, and `fit_mom_by_ns`.
+- `get_lattice_params()`: maps each spatial volume \(L\) to `(Ns, Nt, pion_mass, num_eigenvectors)`.
+- `ENSEMBLE_DB`: channel names, momentum lists, GEVP times, fit windows, and fit priors for meson and tetraquark branches.
+- Local data under `data/<System>/`: meson arrays must be `[channel, momentum, time, sample]`; tetraquark arrays must be `[ch_src, mom_src, ch_snk, mom_snk, time, sample]`.
+
+The analysis code then uses the same `main.py`, GEVP, fitting, resampling, plotting, and scattering modules.
 
 ---
 
@@ -24,11 +37,11 @@ Only source code, input files, docs, and selected result figures are versioned. 
 
 | Domain | What this repo demonstrates |
 |--------|----------------------------|
-| **HPC / large-scale numerics** | Batch processing of high-dimensional correlator arrays (4D meson, 6D tetraquark); jackknife over **400 gauge configs**, each rerunning GEVP + fits |
-| **Scientific computing** | Generalized eigenvalue problems (`scipy.linalg.eig`), tensor contractions (`numpy.einsum`), Lüscher zeta summation on \(10^5\)-point grids |
+| **HPC / large-scale numerics** | Batch processing of high-dimensional correlator arrays (4D meson, 6D tetraquark); jackknife/bootstrap over large gauge ensembles, each resample rerunning GEVP + fits |
+| **Scientific computing** | Generalized eigenvalue problems (`scipy.linalg.eig`), tensor contractions (`numpy.einsum`), cached Lüscher zeta summation on \(10^5\)-point grids |
 | **Statistical inference** | Bayesian nonlinear fits (`lsqfit` + `gvar`); jackknife / bootstrap resampling with correlated uncertainties end-to-end |
-| **Parallel computing** | `joblib` parallel precomputation of zeta lookup tables (`n_jobs=-1`) |
-| **Software engineering** | Modular pipeline (I/O → analysis → statistics → plotting); typed dataclass wrappers; config-driven `ENSEMBLE_DB`; publication-ready figures (`plot_format`: PNG or PDF) |
+| **Parallel computing** | `joblib` parallel zeta-table precomputation (`n_jobs=-1`) and vectorized NumPy tensor operations to reduce runtime bottlenecks |
+| **Software engineering** | Modular pipeline (I/O → analysis → statistics → plotting); typed dataclass wrappers; config-driven `ENSEMBLE_DB`; one entrypoint for multiple tetraquark systems; publication-ready figures (`plot_format`: PNG or PDF) |
 
 **Stack:** Python 3.10+ · NumPy · SciPy · gvar · lsqfit · joblib · Matplotlib (LaTeX)
 
@@ -71,7 +84,9 @@ Monte Carlo correlators          data/<system>/raw/*.npy
                          └─► result/<system>/*.{png|pdf}   (plot_format)
 ```
 
-**Compute profile:** `run_resample=True` is the heavy stage — \(O(N_{\mathrm{cfg}})\) full analysis passes (**400 jackknife leaves** per ensemble). Scattering loads precomputed resampled energies and runs scattering fits plus figure generation. Zeta tables are built once and cached at `data/zeta/zeta_00_rest_array.npy`.
+**Compute profile:** `run_resample=True` is the heavy stage. It is a large-scale data analysis pass over the gauge ensemble: for jackknife it performs \(O(N_{\mathrm{cfg}})\) full analysis passes (**400 leave-one-out samples** for the showcase ensembles), and each pass may rerun GEVP, effective-mass fits, and dispersion fits. Without vectorized array operations, cached intermediate products, and parallel zeta-table generation, this stage can be very time-consuming. Scattering then loads precomputed resampled energies and runs the lighter finite-volume fits plus figure generation. Zeta tables are built once in parallel and cached at `data/zeta/zeta_00_rest_array.npy`.
+
+Performance-sensitive pieces are written to avoid unnecessary Python loops where possible: GEVP rotations use `numpy.einsum`, correlator containers keep array access shape-stable, resampled outputs are stored once and reused by scattering runs, and the expensive Lüscher zeta lookup is parallelized with `joblib`. This keeps repeated plotting/scattering runs fast after the resampled `.npy` files and zeta cache exist.
 
 ---
 
@@ -89,7 +104,7 @@ Monte Carlo correlators          data/<system>/raw/*.npy
 | Unified plot styling | `plotting/plot_set.py` | TeX fonts, z-order, `save_figure()` |
 | Figure output | `plotting/plot_*.py` | `result/<system>/*.{png,pdf}` (see naming below) |
 
-**Design:** configuration, I/O, analysis, statistics, and plotting are decoupled. A new physics system needs only `input/input_<System>.py` and a one-line change in `main.py`.
+**Design:** configuration, I/O, analysis, statistics, and plotting are decoupled. A new tetraquark system needs only `input/input_<System>.py`, local `data/<System>/` arrays with the documented shapes, and a one-line change in `main.py`.
 
 ---
 
@@ -135,6 +150,11 @@ lattice_scattering/
 | `scattering_dict` | Scattering observables per ensemble |
 
 `mom` is the momentum quantum number \(n^2\) used as an **array index** (not a sequential 0…N−1 label). Channel/momentum lists come from `chan_momt_list` in `ENSEMBLE_DB`.
+
+Example dimensions:
+
+- `Tcccc6600` \(L=12\): meson raw correlator `correlation_meson_L12M420_EV170.npy` has shape `[2, 10, 96, 400]`; tetraquark raw correlator `correlation_tetraquark_L12M420_EV170.npy` has shape `[2, 5, 2, 5, 96, 400]`.
+- `X3872` / `Zc3900` \(L=16\): meson raw correlators follow `[6, 5, 128, Ncfg]`; tetraquark raw correlators follow `[4, 2, 4, 2, 128, Ncfg]`.
 
 ### Output figure naming
 
@@ -237,7 +257,7 @@ plot_format: str = "png"              # "png" or "pdf"
 resample_type: str = "jackknife"      # or "bootstrap"
 ```
 
-| \(L\) | \(N_t\) | \(m_\pi\) (MeV) | Distillation EV | Gauge configs | \(a^{-1}\) (GeV) |
+| \(L\) | \(N_t\) | \(m_\pi\) (MeV) | Distillation EV | Gauge configs | \(a_t^{-1}\) (GeV) |
 |-------|---------|-----------------|-----------------|---------------|------------------|
 | 12 | 96 | 420 | 170 | 400 | 7.219 |
 | 16 | 128 | 420 | 120 | 400 | 7.219 |

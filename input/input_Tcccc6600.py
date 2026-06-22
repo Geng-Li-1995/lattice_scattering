@@ -30,7 +30,7 @@ class InputControl:
     is_ratio: bool = False
 
     run_tmin: bool = False
-    run_resample: bool = False  # run resampling from main.py
+    run_resample: bool = False  
     run_scattering: bool = True
 
     plot_meff: bool = True  # En / Zn plots (fit always runs)
