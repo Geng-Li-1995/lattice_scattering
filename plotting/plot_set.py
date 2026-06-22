@@ -124,7 +124,7 @@ def label_axes(xlabel: str, ylabel: str) -> None:
     plt.ylabel(ylabel)
 
 
-def axis_limits_from_values(values, padding_fraction: float = 0.08) -> tuple[float, float]:
+def axis_limits_from_values(values, padding_fraction: float = 0.10) -> tuple[float, float]:
     arr = _as_float_array(values)
     lo = np.min(arr)
     hi = np.max(arr)

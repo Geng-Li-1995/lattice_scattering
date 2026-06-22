@@ -52,13 +52,11 @@ class ScatteringPlotter:
         new_figure(FIG_STANDARD)
         ref_ns = self.config.scattering_list[0][0]
         plot_gvar_band(scattering_dict["s_array"][ref_ns], scattering_dict["fit_Ks_curve"])
-        x_limits = []
         y_limits = []
 
         for ensemble_idx, ensemble_key in enumerate(self.config.scattering_list):
             ns = ensemble_key[0]
             s_pts, ks_pts = scattering_dict["s"][ns], scattering_dict["Ks"][ns]
-            x_limits.append(axis_limits_from_values(s_pts[:, 0]))
             y_limits.append(axis_limits_from_values(ks_pts[:, 0]))
             for point_slice, label, color in self._frame_slices(
                 scattering_dict, ns, len(s_pts), ensemble_idx
@@ -78,7 +76,7 @@ class ScatteringPlotter:
 
         plt.axhline(0, color="black")
         plt.axvline(0, color="black")
-        plt.xlim(*self._combine_axis_limits(*x_limits))
+        plt.xlim(*self.config.s_plot_range)
         plt.ylim(*self._combine_axis_limits(*y_limits))
         label_axes(r"$s\,(\rm{GeV}^2)$", r"$K(s)=\sqrt s / (k\cot\delta_0)$")
         add_legend("upper left")
@@ -91,7 +89,6 @@ class ScatteringPlotter:
         new_figure(FIG_STANDARD)
         ref_ns = self.config.scattering_list[0][0]
         plot_gvar_band(scattering_dict["k_sq_array"][ref_ns], scattering_dict["fit_kcot_curve"])
-        x_limits = []
         y_limits = []
 
         for ensemble_idx, ensemble_key in enumerate(self.config.scattering_list):
@@ -101,7 +98,6 @@ class ScatteringPlotter:
             k_sq_mean = scattering_dict["k_sq"][ns][:, 0]
             k_sq_err = scattering_dict["k_sq"][ns][:, 1]
             kcot = scattering_dict["kcot"][ns]
-            x_limits.append(axis_limits_from_values(k_sq_mean))
             y_limits.append(axis_limits_from_values(kcot[:, 0]))
             frame_slices = self._frame_slices(scattering_dict, ns, len(k_sq_mean), ensemble_idx)
             rest_slice, _, rest_color = frame_slices[0]
@@ -132,7 +128,7 @@ class ScatteringPlotter:
 
         plt.axhline(0, color="black")
         plt.axvline(0, color="black")
-        plt.xlim(*self._combine_axis_limits(*x_limits))
+        plt.xlim(*self.config.k_sq_plot_range)
         plt.ylim(*self._combine_axis_limits(*y_limits))
         label_axes(r"$k^2\,(\rm{GeV}^2)$", r"$k\cot\delta_0\,$(GeV)")
         add_legend("upper left")

@@ -22,7 +22,7 @@ class InputControl:
     num_eigenvectors: int = 0
     pion_mass: int = 0
 
-    # Analysis options
+    # Analysis branches. Both can be enabled; BuildConfig can also request one explicitly.
     is_meson_analysis: bool = False
     is_tetraquark_analysis: bool = True
     is_gevp: bool = True
@@ -30,27 +30,38 @@ class InputControl:
     is_ratio: bool = False
     is_moving_frame: bool = False
 
+    # Pipeline stages
     run_tmin: bool = False
     run_resample: bool = False
     run_scattering: bool = True
 
+    # Plot outputs
     plot_meff: bool = True  # En / Zn plots (fit always runs)
     plot_dispersion: bool = True  # dispersion fit + plot (meson mode only)
     plot_format: str = "png"  # figure output: "png" or "pdf"
 
+    # Resampling controls
     resample_type: str = "jackknife"
     sample_axis: int = -1
     n_boot: int = 1000
 
     Ns_list: ClassVar[list[int]] = [16]  # lattice sizes for scattering
 
-    # Scattering analysis: channel indices and fit momentum subsets per Ns
+    # Scattering channel choices and fit-point subsets.
     ch_meson_a: int = 1
     ch_meson_b: int = 1
     ch_tetra: int = 1
     ch_tetra_MF: int = 0
-    fit_mom_by_ns: Dict[int, List[int]] = field(default_factory=lambda: {16: [0, 1]})
-    fit_mom_by_ns_MF: Dict[int, List[int]] = field(default_factory=lambda: {16: [0, 1]})
+    fit_mom_by_ns: Dict[int, List[int]] = field(
+        default_factory=lambda: {16: [0, 1]}
+    )
+    fit_mom_by_ns_MF: Dict[int, List[int]] = field(
+        default_factory=lambda: {16: [0, 1]}
+    )
+
+    # Plot ranges for scattering figures.
+    k_sq_plot_range: tuple[float, float] = (-0.1, 0.5)
+    s_plot_range: tuple[float, float] = (14, 18)
 
     scattering_list: ScatteringList = field(default_factory=list)
 
@@ -64,7 +75,6 @@ class InputControl:
         self.lattice_Ns, self.lattice_Nt, self.pion_mass, self.num_eigenvectors = (
             self.get_lattice_params(self.lattice_Ns)
         )
-        # Generate list of lattice params for scattering_list
         self.scattering_list = [self.get_lattice_params(ns) for ns in self.Ns_list]
 
     @staticmethod
@@ -83,7 +93,7 @@ class InputControl:
         return (self.lattice_Ns, self.lattice_Nt, self.pion_mass, self.num_eigenvectors)
 
     def analysis_type(self) -> str:
-        """Decide analysis branch automatically (tetraquark overrides meson)."""
+        """Return the default branch when BuildConfig does not request one."""
         if self.is_tetraquark_analysis:
             return "tetraquark"
         if self.is_meson_analysis:

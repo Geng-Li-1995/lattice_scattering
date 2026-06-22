@@ -149,6 +149,8 @@ class InputControl:
     ch_tetra_MF: int = 0
     fit_mom_by_ns: Dict[int, List[int]] = {12: [0, 1, 2], 16: [0, 1]}
     fit_mom_by_ns_MF: Dict[int, List[int]] = {16: [0, 1]}
+    k_sq_plot_range: tuple[float, float] = (-0.25, 1.75)
+    s_plot_range: tuple[float, float] = (37, 45)
 ```
 
 | Switch | Effect |
@@ -161,6 +163,8 @@ class InputControl:
 | `ch_tetra_MF` | Moving-frame tetraquark channel index; ignored when `is_moving_frame=False` |
 | `fit_mom_by_ns` | Momentum subsets per \(L\) for the \(K(s)\) linear fit |
 | `fit_mom_by_ns_MF` | Moving-frame levels per \(L\) for the \(K(s)\) linear fit; ignored when `is_moving_frame=False` |
+| `k_sq_plot_range` | Horizontal plotting range for the \(k\cot\delta_0\) figure |
+| `s_plot_range` | Horizontal plotting range for the \(K(s)\) figure |
 | `run_resample` | Generate jackknife/bootstrap `resampled/` files from enabled raw-data analyses |
 | `run_scattering` | Computes \(K_s\) and \(k\cot\delta\) from existing `resampled/` files |
 | `is_moving_frame` | If `True`, also loads `resample_En_MF_tetraquark_*` and uses moving-frame kinematics |

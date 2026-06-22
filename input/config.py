@@ -57,6 +57,8 @@ class Config:
     ch_tetra_MF: int
     fit_mom_by_ns: Dict[int, List[int]]
     fit_mom_by_ns_MF: Dict[int, List[int]]
+    k_sq_plot_range: Tuple[float, float]
+    s_plot_range: Tuple[float, float]
 
 
 # ===============================
@@ -154,4 +156,6 @@ class BuildConfig:
             ch_tetra_MF=ctrl.ch_tetra_MF,
             fit_mom_by_ns=ctrl.fit_mom_by_ns,
             fit_mom_by_ns_MF=ctrl.fit_mom_by_ns_MF,
+            k_sq_plot_range=ctrl.k_sq_plot_range,
+            s_plot_range=ctrl.s_plot_range,
         )
