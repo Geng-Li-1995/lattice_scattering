@@ -1,10 +1,14 @@
 # Lattice QCD Tetraquark Scattering Pipeline
 
-**Config-driven Python pipeline for lattice QCD tetraquark spectroscopy and finite-volume scattering analysis** — ingests large Monte Carlo correlation-function datasets, performs generalized eigenvalue decomposition (GEVP), Bayesian multi-state fits, jackknife/bootstrap resampling, and Lüscher scattering extraction with full statistical error propagation.
+[![CI](https://github.com/Geng-Li-1995/lattice_scattering/actions/workflows/ci.yml/badge.svg)](https://github.com/Geng-Li-1995/lattice_scattering/actions/workflows/ci.yml)
+
+**Config-driven Python pipeline for lattice QCD tetraquark spectroscopy and finite-volume scattering analysis** — ingests **multi‑million‑element** Monte Carlo correlation-function arrays (up to **6D**, **400+ gauge configurations**, **\(N_t\sim10^2\)** time slices), performs generalized eigenvalue decomposition (GEVP), Bayesian multi-state fits, jackknife/bootstrap resampling, and Lüscher scattering extraction with full statistical error propagation.
 
 The same code path is shared by multiple four-quark systems. System-specific physics choices live in `input/input_<System>.py`: channel names, momentum lists, ensemble metadata, fit windows, priors, scattering channels, and resampling/scattering switches.
 
 **Showcase system:** fully-charm tetraquark **Tcccc6600** (\(\eta_c\eta_c\), \(J/\psi\,J/\psi\)) on \(N_f=2\) anisotropic ensembles (\(L=12,16\), \(N_t=96/128\), \(m_\pi\approx 420\) MeV, **400 gauge configurations** per volume, **120–170 distillation eigenvectors** depending on \(L\), \(a_t^{-1}=7.219\) GeV).
+
+This repository is maintained as **research-grade analysis software**: modular stages, typed configuration, automated regression tests, and GitHub Actions CI on every change to `main` — the same engineering patterns used when moving research prototypes toward reproducible, reviewable workflows in operational science environments.
 
 ---
 
@@ -37,13 +41,31 @@ The analysis code then uses the same `main.py`, GEVP, fitting, resampling, plott
 
 | Domain | What this repo demonstrates |
 |--------|----------------------------|
-| **HPC / large-scale numerics** | Batch processing of high-dimensional correlator arrays (4D meson, 6D tetraquark); jackknife/bootstrap over large gauge ensembles, each resample rerunning GEVP + fits |
+| **HPC / large-scale numerics** | **6D** tetraquark correlators (\(\sim10^6\)–\(10^7\) elements per file); **400×** jackknife passes over full GEVP + fits; cached \(10^5\)-point zeta tables |
 | **Scientific computing** | Generalized eigenvalue problems (`scipy.linalg.eig`), tensor contractions (`numpy.einsum`), cached Lüscher zeta summation on \(10^5\)-point grids |
 | **Statistical inference** | Bayesian nonlinear fits (`lsqfit` + `gvar`); jackknife / bootstrap resampling with correlated uncertainties end-to-end |
 | **Parallel computing** | `joblib` parallel zeta-table precomputation (`n_jobs=-1`) and vectorized NumPy tensor operations to reduce runtime bottlenecks |
 | **Software engineering** | Modular pipeline (I/O → analysis → statistics → plotting); typed dataclass wrappers; config-driven `ENSEMBLE_DB`; one entrypoint for multiple tetraquark systems; publication-ready figures (`plot_format`: PNG or PDF) |
+| **Testing & CI/CD** | `pytest` regression suite; GitHub Actions on push/PR to `main` (Python 3.10 & 3.12); tests run without multi-GB lattice data |
 
-**Stack:** Python 3.10+ · NumPy · SciPy · gvar · lsqfit · joblib · Matplotlib (LaTeX)
+**Stack:** Python 3.10+ · NumPy · SciPy · gvar · lsqfit · joblib · Matplotlib (LaTeX) · pytest · GitHub Actions
+
+---
+
+## Research Software Engineering Profile
+
+This project is structured as **research-grade software**: modular stages, typed configuration, automated regression tests, and CI on every change to `main`. The design reflects practices common in research-to-operations (R2O) environments — turning exploratory analysis into reproducible, reviewable workflows.
+
+| Competency | How this repository demonstrates it |
+|------------|-------------------------------------|
+| **Complex computational pipelines** | Multi-stage workflow: raw correlators → GEVP → fits → resampling → scattering → publication figures; each stage is switch-controlled and independently rerunnable |
+| **Research → robust software** | Physics prototypes (new systems, moving-frame scattering, fit modes) are integrated via config files and shared modules, not one-off scripts |
+| **Software testing & review** | Unit tests for statistics, I/O, scattering algebra, and fit indexing; CI gates merges to `main` |
+| **Python on scientific codebases** | Dataclasses, typed aliases, registry-based models, separation of orchestration (`scattering.py`) from numerics (`zeta.py`) and I/O (`data/`) |
+| **HPC-aware design** | Leave-one-out jackknife over **400 configurations**; parallel zeta generation; cached `.npy` artefacts so expensive stages are not repeated |
+| **Unix / reproducible runs** | Single entrypoint (`main.py`); documented dependencies; headless plotting via `MPLBACKEND=Agg` in CI |
+| **Collaboration with domain scientists** | `ENSEMBLE_DB` encodes channel names, priors, and fit windows chosen by lattice practitioners; plotting uses LaTeX channel labels |
+| **Quality before release** | Pull-request workflow with automated tests; large binary inputs excluded from git; regenerable caches under `data/zeta/` and `data/*/resampled/` |
 
 ---
 
@@ -84,9 +106,127 @@ Monte Carlo correlators          data/<system>/raw/*.npy
                          └─► result/<system>/*.{png|pdf}   (plot_format)
 ```
 
-**Compute profile:** `run_resample=True` is the heavy stage. It is a large-scale data analysis pass over the gauge ensemble: for jackknife it performs \(O(N_{\mathrm{cfg}})\) full analysis passes (**400 leave-one-out samples** for the showcase ensembles), and each pass may rerun GEVP, effective-mass fits, and dispersion fits. Without vectorized array operations, cached intermediate products, and parallel zeta-table generation, this stage can be very time-consuming. Scattering then loads precomputed resampled energies and runs the lighter finite-volume fits plus figure generation. Zeta tables are built once in parallel and cached at `data/zeta/zeta_00_rest_array.npy`.
+**Compute profile:** `run_resample=True` is the heavy stage. It is a large-scale data analysis pass over the gauge ensemble: for jackknife it performs \(O(N_{\mathrm{cfg}})\) full analysis passes (**400 leave-one-out samples** for the showcase ensembles), and each pass may rerun GEVP, effective-mass fits, and dispersion fits. Without vectorized array operations, cached intermediate products, and parallel zeta-table generation, this stage can be very time-consuming. Scattering then loads precomputed resampled energies and runs the lighter finite-volume fits plus figure generation. Zeta tables are built once in parallel and cached under `data/zeta/` (e.g. `zeta_00_rest_lam{λ}_nq{n_q}.npy`).
 
 Performance-sensitive pieces are written to avoid unnecessary Python loops where possible: GEVP rotations use `numpy.einsum`, correlator containers keep array access shape-stable, resampled outputs are stored once and reused by scattering runs, and the expensive Lüscher zeta lookup is parallelized with `joblib`. This keeps repeated plotting/scattering runs fast after the resampled `.npy` files and zeta cache exist.
+
+---
+
+## Data Scale & Array Dimensions
+
+All on-disk arrays use **`float64`**. The `sample` axis indexes independent gauge configurations (typically **400**; jackknife resampling produces one analysis pass per configuration). `mom` is the momentum quantum number \(n^2\) used as an **array index**.
+
+### Array axis conventions
+
+| Array | Axes (in order) |
+|-------|-----------------|
+| Meson correlator | `[channel, momentum, time, sample]` |
+| Tetraquark correlator | `[ch_src, mom_src, ch_snk, mom_snk, time, sample]` |
+| Resampled energy | `[channel, momentum, sample]` |
+| Resampled \(\xi\) (meson) | `[channel, sample]` |
+| MF scatter cache | `[level, sample, stat]` with `stat ∈ {Ks, s, k², kcot}` |
+
+### Raw correlators (`data/<system>/raw/`)
+
+**Tcccc6600** (showcase; 2 meson + 2 tetraquark channels per volume):
+
+| File | Shape | Elements | File size (approx.) |
+|------|-------|----------|---------------------|
+| `correlation_meson_L12M420_EV170.npy` | `[2, 10, 96, 400]` | 768 000 | **5.9 MiB** |
+| `correlation_tetraquark_L12M420_EV170.npy` | `[2, 5, 2, 5, 96, 400]` | 3.84 M | **29 MiB** |
+| `correlation_meson_L16M420_EV120.npy` | `[2, 10, 128, 400]` | 1.02 M | **7.8 MiB** |
+| `correlation_tetraquark_L16M420_EV120.npy` | `[2, 5, 2, 5, 128, 400]` | 5.12 M | **39 MiB** |
+
+One volume (\(L=12\) or \(16\)): **~35 MiB** meson + tetraquark combined. Both scattering volumes: **~82 MiB** raw input per system.
+
+**X3872 / Zc3900** (\(L=16\), \(N_t=128\), 6 meson + 4 tetraquark channels; `N_cfg` = number of gauge configs on the `sample` axis):
+
+| File | Shape (example) | Elements (@ `N_cfg=401`) | File size (approx.) |
+|------|-----------------|--------------------------|---------------------|
+| `correlation_meson_L16M420_EV70.npy` | `[6, 5, 128, N_cfg]` | 1.54 M | **12 MiB** |
+| `correlation_tetraquark_L16M420_EV70.npy` | `[4, 2, 4, 2, 128, N_cfg]` | 3.29 M | **25 MiB** |
+
+Tetraquark raw arrays are **5× larger in rank** than meson (6D vs 4D) for comparable channel counts — the dominant storage and GEVP tensor cost.
+
+### Resampled outputs (`data/<system>/resampled/`)
+
+Produced by `run_resample_statistics()`; consumed by scattering without reloading raw correlators.
+
+| File pattern | Shape (X3872 example) | Role |
+|--------------|----------------------|------|
+| `resample_En_meson_*.npy` | `[6, 5, 401]` | Jackknife meson energies per channel / momentum |
+| `resample_En_tetraquark_*.npy` | `[1, 3, 401]` | Tetraquark levels used in scattering |
+| `resample_En_d001_tetraquark_*.npy` | `[1, 3, 401]` | Moving-frame tetraquark energies (`is_moving_frame=True`) |
+| `resample_ksi_meson_*.npy` | `[6, 401]` | Dispersion scale \(\xi\) per meson channel |
+| `resample_scatter_MF_*.npy` | `[n_level, 401, 4]` | Cached per-sample \(K_s, s, k², k\cot\delta\) (moving frame) |
+
+Each jackknife index carries correlated energies across channels — scattering recomputes \(k\cot\delta_0\) from these **401-sample** vectors without touching the multi‑MiB raw files.
+
+### Precomputed caches (`data/zeta/`, regenerable)
+
+| Cache | Shape (default) | Build cost |
+|-------|-----------------|------------|
+| `zeta_00_rest_lam50_nq100000.npy` | `[100 000]` | `joblib` parallel sum over lattice modes (\(\lambda=50\)) |
+| `zeta_00_moving_*_nq1000.npy` | `[1 000]` | Per-ensemble moving-frame kinematics |
+| MF scatter ref | `[2, n_q]` (`k²`, kcot grids) | Reference curves for plots |
+
+Rest-frame scattering interpolates each of the **401** jackknife samples onto a **\(10^5\)**-point \(q^2\) grid; the table is built once and reused.
+
+### Jackknife compute amplification
+
+For `resample_type="jackknife"` with **400** configurations:
+
+| Stage | Per full run | Jackknife total |
+|-------|--------------|-----------------|
+| GEVP + effective-mass fits | 1× over raw correlators | **400×** leave-one-out passes |
+| Dispersion fits (meson) | 1× per channel | **400×** |
+| Scattering analysis | 1× over resampled `.npy` | 1× (reads precomputed energies) |
+
+The resampling stage is therefore **\(O(N_{\mathrm{cfg}})\)** times a full spectroscopy analysis — the main HPC bottleneck — while scattering and plotting remain lightweight once `resampled/` exists.
+
+---
+
+## Software Quality & CI/CD
+
+### Continuous integration
+
+GitHub Actions workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every **push** and **pull request** to `main`:
+
+| Step | Action |
+|------|--------|
+| Matrix | Python **3.10** and **3.12** on `ubuntu-latest` |
+| Install | `pip install -r requirements-dev.txt` |
+| Test | `pytest` with `MPLBACKEND=Agg` |
+| Data | **No** `data/**/*.npy` required — tests use synthetic arrays and temporary files |
+
+View runs: [github.com/Geng-Li-1995/lattice_scattering/actions](https://github.com/Geng-Li-1995/lattice_scattering/actions)
+
+### Local development & testing
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements-dev.txt   # installs pytest + runtime deps
+pytest                                # run full suite
+pytest tests/test_scattering.py -v    # run one module
+```
+
+### Test coverage (current)
+
+| Module under test | Examples |
+|-------------------|----------|
+| `statistics/jackknife.py` | Mean, standard error, leave-one-out consistency |
+| `data/scattering_io.py` | Moving-frame cache round-trip, path tags |
+| `analysis/scattering.py` | Rest-frame Källén / kcot algebra |
+| `analysis/fit_scattering.py` | Moving-frame fit momentum indexing |
+| `plotting/plot_set.py` | Axis limit helpers |
+
+Tests deliberately avoid depending on gitignored lattice data so CI and lightweight clones stay fast — the same separation used when operational systems must validate software logic independently of multi-TB datasets.
+
+### Branch workflow
+
+1. Feature branch → open PR to `main`
+2. CI must pass before merge
+3. Large `.npy` artefacts remain local; only code, config, docs, and figures are versioned
 
 ---
 
@@ -114,6 +254,10 @@ Performance-sensitive pieces are written to avoid unnecessary Python loops where
 ```
 lattice_scattering/
 ├── main.py                  # GEVP → fits → plots → scattering
+├── .github/workflows/ci.yml # GitHub Actions: pytest on push/PR
+├── pytest.ini
+├── requirements-dev.txt     # pytest + runtime deps
+├── tests/                   # unit tests (no lattice .npy required)
 ├── input/
 │   ├── config.py            # BuildConfig → immutable Config dataclass
 │   ├── input_Tcccc6600.py   # InputControl switches + ENSEMBLE_DB priors
@@ -234,6 +378,10 @@ git clone https://github.com/Geng-Li-1995/lattice_scattering.git
 cd lattice_scattering
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
+
+# Optional: install dev tools and run tests (same as CI)
+pip install -r requirements-dev.txt
+pytest
 
 # Generate resampled files when needed:
 # set run_resample=True in input/input_<System>.py, then run
