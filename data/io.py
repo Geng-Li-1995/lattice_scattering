@@ -60,6 +60,14 @@ def read_resampled_files(config: Config) -> ResampleDataDict:
             resampled[corr_type][ensemble_key] = arr
             print(f"Resampled {corr_type} Ns={ensemble_key[0]}, shape={arr.shape}")
 
+    if config.is_moving_frame:
+        resampled["tetraquark_MF"] = {}
+        for ensemble_key in config.scattering_list:
+            path = resampled_dir / f"resample_En_MF_tetraquark_{_ensemble_tag(ensemble_key)}.npy"
+            arr = _load_npy(path)
+            resampled["tetraquark_MF"][ensemble_key] = arr
+            print(f"Resampled MF tetraquark Ns={ensemble_key[0]}, shape={arr.shape}")
+
     resampled["ksi"] = {}
     for ensemble_key in config.scattering_list:
         path = resampled_dir / f"resample_ksi_meson_{_ensemble_tag(ensemble_key)}.npy"

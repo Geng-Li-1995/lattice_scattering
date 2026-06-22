@@ -28,9 +28,10 @@ class InputControl:
     is_gevp: bool = True
     is_svd: bool = False
     is_ratio: bool = False
+    is_moving_frame: bool = False
 
     run_tmin: bool = False
-    run_resample: bool = False  
+    run_resample: bool = False
     run_scattering: bool = True
 
     plot_meff: bool = True  # En / Zn plots (fit always runs)
@@ -47,9 +48,11 @@ class InputControl:
     ch_meson_a: int = 1
     ch_meson_b: int = 1
     ch_tetra: int = 1
+    ch_tetra_MF: int = 0
     fit_mom_by_ns: Dict[int, List[int]] = field(
         default_factory=lambda: {12: [0, 1, 2], 16: [0, 1]}
     )
+    fit_mom_by_ns_MF: Dict[int, List[int]] = field(default_factory=lambda: {16: [0, 1]})
 
     scattering_list: ScatteringList = field(default_factory=list)
 

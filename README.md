@@ -251,6 +251,7 @@ is_tetraquark_analysis: bool = True   # tetraquark raw-data workflow
 is_gevp: bool = True
 run_resample: bool = False            # generate resampled files from raw data
 run_scattering: bool = True
+is_moving_frame: bool = False                   # use moving-frame tetraquark resampled energies
 plot_meff: bool = True
 plot_dispersion: bool = True          # meson mode only
 plot_format: str = "png"              # "png" or "pdf"
@@ -283,7 +284,10 @@ Scattering combines both volumes via `Ns_list = [12, 16]`.
 | `correlation_meson_L{Ns}M{M}_EV{EV}.npy` | `[channel, momentum, time, sample]` — `sample` = 400 gauge configs; `EV` = distillation eigenvectors |
 | `correlation_tetraquark_L{Ns}M{M}_EV{EV}.npy` | `[ch_src, mom_src, ch_snk, mom_snk, time, sample]` — same convention |
 | `resample_En_{type}_L{Ns}M{M}_EV{EV}.npy` | Per-configuration energies (400 jackknife/bootstrap samples) |
+| `resample_En_MF_tetraquark_L{Ns}M{M}_EV{EV}.npy` | Moving-frame tetraquark energies, used only when `is_moving_frame=True` |
 | `resample_ksi_meson_L{Ns}M{M}_EV{EV}.npy` | Dispersion scale \(\xi\) |
+
+For moving-frame scattering, `ch_tetra_MF` selects the tetraquark channel in `resample_En_MF_tetraquark_*`, and `fit_mom_by_ns_MF` selects which moving-frame levels enter the \(K(s)\) fit. These settings are ignored when `is_moving_frame=False`.
 
 ---
 

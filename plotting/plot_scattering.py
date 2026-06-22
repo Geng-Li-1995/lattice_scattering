@@ -29,6 +29,17 @@ class ScatteringPlotter:
             plot_format=self.config.plot_format,
         )
 
+    def _frame_slices(self, scattering_dict: dict, ns: int, n_points: int, ensemble_idx: int):
+        if not self.config.is_moving_frame:
+            return [(slice(0, n_points), f"L{ns}", COLORS[ensemble_idx % len(COLORS)])]
+
+        rest_count = scattering_dict["rest_point_count"][ns]
+        color_idx = 2 * ensemble_idx
+        return [
+            (slice(0, rest_count), f"L{ns} rest", COLORS[color_idx % len(COLORS)]),
+            (slice(rest_count, n_points), f"L{ns} moving", COLORS[(color_idx + 1) % len(COLORS)]),
+        ]
+
     def plot_Ks(self, scattering_dict: dict) -> None:
         if not self.config.is_tetraquark_analysis:
             return
@@ -39,13 +50,22 @@ class ScatteringPlotter:
 
         for ensemble_idx, ensemble_key in enumerate(self.config.scattering_list):
             ns = ensemble_key[0]
-            color = COLORS[ensemble_idx]
             s_pts, ks_pts = scattering_dict["s"][ns], scattering_dict["Ks"][ns]
-            plt.errorbar(
-                s_pts[:, 0], ks_pts[:, 0],
-                xerr=s_pts[:, 1], yerr=ks_pts[:, 1],
-                fmt="x", color=color, label=f"L{ns}", **ERRORBAR_KW,
-            )
+            for point_slice, label, color in self._frame_slices(
+                scattering_dict, ns, len(s_pts), ensemble_idx
+            ):
+                if len(s_pts[point_slice]) == 0:
+                    continue
+                plt.errorbar(
+                    s_pts[point_slice, 0],
+                    ks_pts[point_slice, 0],
+                    xerr=s_pts[point_slice, 1],
+                    yerr=ks_pts[point_slice, 1],
+                    fmt="x",
+                    color=color,
+                    label=label,
+                    **ERRORBAR_KW,
+                )
 
         plt.axhline(0, color="black")
         plt.axvline(0, color="black")
@@ -65,27 +85,37 @@ class ScatteringPlotter:
 
         for ensemble_idx, ensemble_key in enumerate(self.config.scattering_list):
             ns = ensemble_key[0]
-            color = COLORS[ensemble_idx]
             k_sq_grid = scattering_dict["k_sq_array"][ns]
             kcot_rest_grid = scattering_dict["kcot_rest_array"][ns]
             k_sq_mean = scattering_dict["k_sq"][ns][:, 0]
             k_sq_err = scattering_dict["k_sq"][ns][:, 1]
+            kcot = scattering_dict["kcot"][ns]
+            frame_slices = self._frame_slices(scattering_dict, ns, len(k_sq_mean), ensemble_idx)
+            rest_slice, _, rest_color = frame_slices[0]
 
             plt.plot(
                 k_sq_grid, kcot_rest_grid,
-                color=color, linestyle="--", alpha=0.3, zorder=ZORDER_AUX_LINE,
+                color=rest_color, linestyle="--", alpha=0.3, zorder=ZORDER_AUX_LINE,
             )
-            for m, e in zip(k_sq_mean, k_sq_err):
+            for m, e in zip(k_sq_mean[rest_slice], k_sq_err[rest_slice]):
                 mask = (k_sq_grid >= m - e) & (k_sq_grid <= m + e)
                 plt.plot(
                     k_sq_grid[mask], kcot_rest_grid[mask],
-                    color=color, linestyle="-", zorder=ZORDER_FIT_CURVE,
+                    color=rest_color, linestyle="-", zorder=ZORDER_FIT_CURVE,
                 )
 
-            plt.errorbar(
-                k_sq_mean, scattering_dict["kcot"][ns][:, 0], xerr=k_sq_err,
-                fmt="x", color=color, label=f"L{ns}", **ERRORBAR_KW,
-            )
+            for point_slice, label, color in frame_slices:
+                if len(k_sq_mean[point_slice]) == 0:
+                    continue
+                plt.errorbar(
+                    k_sq_mean[point_slice],
+                    kcot[point_slice, 0],
+                    xerr=k_sq_err[point_slice],
+                    fmt="x",
+                    color=color,
+                    label=label,
+                    **ERRORBAR_KW,
+                )
 
         plt.axhline(0, color="black")
         plt.axvline(0, color="black")

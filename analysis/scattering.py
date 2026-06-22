@@ -23,7 +23,7 @@ def run_scattering_analysis(
     ch_meson_a = config.ch_meson_a
     ch_meson_b = config.ch_meson_b
     ch_tetra = config.ch_tetra
-    fit_mom_by_ns = config.fit_mom_by_ns
+    ch_tetra_MF = config.ch_tetra_MF
 
     mom_list = config.chan_momt_list[ch_tetra]
     at_invs = config.at_invs
@@ -52,17 +52,47 @@ def run_scattering_analysis(
         scattering_dict["k_sq_array"][ns] = k_sq_grid
         scattering_dict["kcot_rest_array"][ns] = kcot_rest_grid
 
-        mom_results = {
-            mom: _analyze_momentum(
-                en_tetra[mom], e0_meson_a, e0_meson_b, lattice_size, q_sq_grid, zeta_00_rest
+        if config.is_moving_frame:
+            en_tetra_mf = resampled_dict["tetraquark_MF"][ensemble_key][ch_tetra_MF]
+            scattering_dict["rest_point_count"][ns] = en_tetra.shape[0]
+            mom_results = [
+                _analyze_momentum(
+                    en_tetra[mom],
+                    e0_meson_a,
+                    e0_meson_b,
+                    lattice_size,
+                    q_sq_grid,
+                    zeta_00_rest,
+                )
+                for mom in range(en_tetra.shape[0])
+            ]
+            mom_results.extend(
+                _analyze_moving_frame_momenta(
+                    en_tetra_mf,
+                    e0_meson_a,
+                    e0_meson_b,
+                    lattice_size,
+                )
             )
-            for mom in mom_list
-        }
+        else:
+            mom_results = [
+                _analyze_momentum(
+                    en_tetra[mom],
+                    e0_meson_a,
+                    e0_meson_b,
+                    lattice_size,
+                    q_sq_grid,
+                    zeta_00_rest,
+                )
+                for mom in mom_list
+            ]
+
         for name in STAT_NAMES:
             scattering_dict[name][ns] = np.array(
-                [get_resampler(config, mom_results[mom][name]).gvar() for mom in mom_list]
+                [get_resampler(config, result[name]).gvar() for result in mom_results]
             )
 
+    fit_mom_by_ns = _fit_mom_by_ns(config, scattering_dict)
     s_all = np.concatenate([scattering_dict["s"][ns][moms] for ns, moms in fit_mom_by_ns.items()])
     ks_all = np.concatenate([scattering_dict["Ks"][ns][moms] for ns, moms in fit_mom_by_ns.items()])
 
@@ -84,6 +114,20 @@ def run_scattering_analysis(
     return scattering_dict
 
 
+def _fit_mom_by_ns(config: Config, scattering_dict: dict) -> dict[int, list[int]]:
+    if not config.is_moving_frame:
+        return config.fit_mom_by_ns
+
+    fit_mom_by_ns: dict[int, list[int]] = {}
+    for ensemble_key in config.scattering_list:
+        ns = ensemble_key[0]
+        rest_point_count = scattering_dict["rest_point_count"][ns]
+        fit_mom_by_ns[ns] = list(config.fit_mom_by_ns.get(ns, [])) + [
+            rest_point_count + mom for mom in config.fit_mom_by_ns_MF.get(ns, [])
+        ]
+    return fit_mom_by_ns
+
+
 def _analyze_momentum(
     en_tetra, e0_meson_a, e0_meson_b, lattice_size, q_sq_grid, zeta_00_rest
 ) -> dict:
@@ -92,6 +136,72 @@ def _analyze_momentum(
     q_sq = k_sq * (lattice_size / (2 * np.pi)) ** 2
     zeta = np.interp(q_sq, q_sq_grid, zeta_00_rest)
     kcot = zeta * 2 / np.sqrt(np.pi) / lattice_size
+    return {"Ks": sqrt_s / kcot, "s": sqrt_s**2, "sqrt_s": sqrt_s, "k_sq": k_sq, "kcot": kcot}
+
+
+def _analyze_moving_frame_momenta(
+    en_tetra_mf: np.ndarray,
+    e0_meson_a: np.ndarray,
+    e0_meson_b: np.ndarray,
+    lattice_size: np.ndarray,
+) -> list[dict]:
+    d_vec = np.array([0.0, 0.0, 1.0])
+    lamda = 30
+    n_range = np.arange(-lamda, lamda + 1)
+    n_vec_array = np.array(np.meshgrid(n_range, n_range, n_range, indexing="ij")).T.reshape(-1, 3)
+
+    return [
+        _analyze_moving_frame_momentum(
+            en_tetra,
+            e0_meson_a,
+            e0_meson_b,
+            lattice_size,
+            n_vec_array,
+            d_vec,
+            lamda,
+        )
+        for en_tetra in en_tetra_mf
+    ]
+
+
+def _analyze_moving_frame_momentum(
+    en_tetra: np.ndarray,
+    e0_meson_a: np.ndarray,
+    e0_meson_b: np.ndarray,
+    lattice_size: np.ndarray,
+    n_vec_array: np.ndarray,
+    d_vec: np.ndarray,
+    lamda: int,
+) -> dict:
+    k_sq = np.zeros_like(en_tetra)
+    kcot = np.zeros_like(en_tetra)
+    sqrt_s = np.zeros_like(en_tetra)
+
+    for sample_idx in range(en_tetra.shape[-1]):
+        total_momentum_sq = np.sum((2.0 * np.pi * d_vec / lattice_size[sample_idx]) ** 2)
+        e_cm_sq = max(en_tetra[sample_idx] ** 2 - total_momentum_sq, 0.0)
+        e_cm = np.sqrt(e_cm_sq)
+        gamma = en_tetra[sample_idx] / e_cm
+        alpha = 1.0 + (
+            (e0_meson_a[sample_idx] ** 2 - e0_meson_b[sample_idx] ** 2) / e_cm_sq
+        )
+
+        r_sq_array = build_r_sq_from_n_vec(n_vec_array, d_vec, alpha, gamma)
+        r_sq_array = r_sq_array[r_sq_array <= lamda**2]
+
+        k_sq[sample_idx] = (
+            kallen(e_cm_sq, e0_meson_a[sample_idx] ** 2, e0_meson_b[sample_idx] ** 2)
+            / (4.0 * e_cm_sq)
+        )
+        q_sq = k_sq[sample_idx] * (lattice_size[sample_idx] / (2.0 * np.pi)) ** 2
+        zeta_00 = gen_zeta_00_moving_from_q_sq(r_sq_array, q_sq, lamda)
+        kcot[sample_idx] = (
+            2.0 * zeta_00 / np.sqrt(np.pi) / lattice_size[sample_idx] / gamma
+        )
+        sqrt_s[sample_idx] = np.sqrt(e0_meson_a[sample_idx] ** 2 + k_sq[sample_idx]) + np.sqrt(
+            e0_meson_b[sample_idx] ** 2 + k_sq[sample_idx]
+        )
+
     return {"Ks": sqrt_s / kcot, "s": sqrt_s**2, "sqrt_s": sqrt_s, "k_sq": k_sq, "kcot": kcot}
 
 
@@ -105,6 +215,20 @@ def build_n_sq_array(lamda: int) -> np.ndarray:
     nx, ny, nz = np.meshgrid(n_range, n_range, n_range, indexing="ij")
     n_sq = nx**2 + ny**2 + nz**2
     return n_sq[n_sq <= lamda**2].astype(float)
+
+
+def build_r_sq_from_n_vec(
+    n_vec_array: np.ndarray,
+    d_vec: np.ndarray,
+    alpha: float,
+    gamma: float,
+) -> np.ndarray:
+    d_hat = d_vec / np.linalg.norm(d_vec)
+    x = n_vec_array - 0.5 * alpha * d_vec[None, :]
+    x_para = np.dot(x, d_hat)[:, None] * d_hat[None, :]
+    x_perp = x - x_para
+    r_vec = x_perp + x_para / gamma
+    return np.sum(r_vec * r_vec, axis=-1)
 
 
 def gen_zeta_00_rest_from_q_sq_array(
@@ -133,3 +257,19 @@ def gen_zeta_00_rest_from_q_sq(n_sq_array: np.ndarray, q_sq: float, lamda: int) 
     y_00 = 1.0 / np.sqrt(4.0 * np.pi)
     mask = ~np.isclose(n_sq_array, q_sq, atol=1e-12)
     return np.sum(1.0 / (n_sq_array[mask] - q_sq)) * y_00 - 4.0 * np.pi * lamda * y_00
+
+
+def gen_zeta_00_moving_from_q_sq(r_sq_array: np.ndarray, q_sq: float, lamda: int) -> float:
+    y_00 = 1.0 / np.sqrt(4.0 * np.pi)
+    mask = ~np.isclose(r_sq_array, q_sq)
+    sum_part = np.sum(1.0 / (r_sq_array[mask] - q_sq))
+
+    q = np.sqrt(q_sq) if q_sq > 1e-12 else 0.0
+    if q > 0:
+        integral_part = 4.0 * np.pi * lamda + 2.0 * np.pi * q * np.log(
+            abs((lamda - q) / (lamda + q))
+        )
+    else:
+        integral_part = 4.0 * np.pi * lamda
+
+    return y_00 * (sum_part - integral_part)

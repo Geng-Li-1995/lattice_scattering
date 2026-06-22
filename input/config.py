@@ -41,6 +41,7 @@ class Config:
     run_tmin: bool
     run_resample: bool
     run_scattering: bool
+    is_moving_frame: bool
 
     plot_meff: bool
     plot_dispersion: bool
@@ -53,7 +54,9 @@ class Config:
     ch_meson_a: int
     ch_meson_b: int
     ch_tetra: int
+    ch_tetra_MF: int
     fit_mom_by_ns: Dict[int, List[int]]
+    fit_mom_by_ns_MF: Dict[int, List[int]]
 
 
 # ===============================
@@ -138,6 +141,7 @@ class BuildConfig:
             run_tmin=ctrl.run_tmin,
             run_resample=ctrl.run_resample,
             run_scattering=ctrl.run_scattering,
+            is_moving_frame=ctrl.is_moving_frame,
             plot_meff=ctrl.plot_meff,
             plot_dispersion=ctrl.plot_dispersion,
             plot_format=ctrl.plot_format,
@@ -147,5 +151,7 @@ class BuildConfig:
             ch_meson_a=ctrl.ch_meson_a,
             ch_meson_b=ctrl.ch_meson_b,
             ch_tetra=ctrl.ch_tetra,
+            ch_tetra_MF=ctrl.ch_tetra_MF,
             fit_mom_by_ns=ctrl.fit_mom_by_ns,
+            fit_mom_by_ns_MF=ctrl.fit_mom_by_ns_MF,
         )
