@@ -30,9 +30,7 @@ class InputControl:
     is_ratio: bool = False
 
     run_tmin: bool = False
-    run_resample: bool = (
-        False  # run resampling from main.py; suppresses plots during resampling
-    )
+    run_resample: bool = False  # run resampling from main.py
     run_scattering: bool = True
 
     plot_meff: bool = True  # En / Zn plots (fit always runs)
@@ -49,9 +47,7 @@ class InputControl:
     ch_meson_a: int = 1
     ch_meson_b: int = 1
     ch_tetra: int = 1
-    fit_mom_by_ns: Dict[int, List[int]] = field(
-        default_factory=lambda: {16: [0, 1]}
-    )
+    fit_mom_by_ns: Dict[int, List[int]] = field(default_factory=lambda: {16: [0, 1]})
 
     scattering_list: ScatteringList = field(default_factory=list)
 

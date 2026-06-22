@@ -134,12 +134,15 @@ class MassPlotter:
                 zn = en_lookup[(ch_idx, mom)].p["weff_0"] / ref_weff
                 plt.errorbar(
                     mom, gv.mean(zn), gv.sdev(zn),
-                    fmt=MARKERS[ch_idx], color=COLORS[ch_idx], **ERRORBAR_KW,
+                    fmt=MARKERS[ch_idx], color=COLORS[ch_idx],
+                    label=rf"${self.chan_name_list[ch_idx]}$" if mom == mom_list[0] else None,
+                    **ERRORBAR_KW,
                 )
 
         label_axes(r"$n^2$", rf"$Z_n/Z_0$ on {self.tag_name}")
         plt.xlim(0, mom_max)
         plt.ylim(0, 1)
+        add_legend("upper right")
         self._save("Zn")
 
     def plot_dispersion(

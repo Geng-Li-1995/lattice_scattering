@@ -1,6 +1,8 @@
 """Shared plot aesthetics: figure sizes, fonts, colors, and helpers."""
 
 import gvar as gv
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -132,11 +134,13 @@ def save_figure(stem: str, *, plot_format: str = "png") -> None:
     """Save the current figure; *stem* is the path without extension."""
     if plot_format not in PLOT_FORMATS:
         raise ValueError(f'plot_format must be one of {PLOT_FORMATS}, got {plot_format!r}')
+    path = Path(f"{stem}.{plot_format}")
+    path.parent.mkdir(parents=True, exist_ok=True)
     plt.tight_layout()
     if plot_format == "pdf":
-        plt.savefig(f"{stem}.pdf", format="pdf", dpi=300)
+        plt.savefig(path, format="pdf", dpi=300)
     else:
-        plt.savefig(f"{stem}.png", format="png", dpi=150)
+        plt.savefig(path, format="png", dpi=150)
     plt.show()
 
 

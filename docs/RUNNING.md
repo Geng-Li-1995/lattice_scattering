@@ -275,5 +275,3 @@ Fit parameters and diagnostics are printed to stdout during the run.
    ```python
    builder = BuildConfig("<NewSystem>")
    ```
-
-5. Create the output directory: `mkdir -p result/<NewSystem>`

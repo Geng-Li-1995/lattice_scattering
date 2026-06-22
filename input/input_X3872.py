@@ -23,17 +23,15 @@ class InputControl:
     pion_mass: int = 0
 
     # Analysis options
-    is_meson_analysis: bool = False
+    is_meson_analysis: bool = True
     is_tetraquark_analysis: bool = False
     is_gevp: bool = True
     is_svd: bool = False
     is_ratio: bool = False
 
     run_tmin: bool = False
-    run_resample: bool = (
-        False  # run resampling from main.py; suppresses plots during resampling
-    )
-    run_scattering: bool = True
+    run_resample: bool = False  # run resampling from main.py
+    run_scattering: bool = False
 
     plot_meff: bool = True  # En / Zn plots (fit always runs)
     plot_dispersion: bool = True  # dispersion fit + plot (meson mode only)
@@ -49,9 +47,7 @@ class InputControl:
     ch_meson_a: int = 1
     ch_meson_b: int = 1
     ch_tetra: int = 1
-    fit_mom_by_ns: Dict[int, List[int]] = field(
-        default_factory=lambda: {16: [0, 1]}
-    )
+    fit_mom_by_ns: Dict[int, List[int]] = field(default_factory=lambda: {16: [0, 1]})
 
     scattering_list: ScatteringList = field(default_factory=list)
 
