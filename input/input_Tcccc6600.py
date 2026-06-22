@@ -23,7 +23,7 @@ class InputControl:
     pion_mass: int = 0
 
     # Analysis options
-    is_meson_analysis: bool = False
+    is_meson_analysis: bool = True
     is_tetraquark_analysis: bool = True
     is_gevp: bool = True
     is_svd: bool = False

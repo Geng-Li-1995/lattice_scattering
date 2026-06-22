@@ -135,7 +135,7 @@ class MassPlotter:
                 plt.errorbar(
                     mom, gv.mean(zn), gv.sdev(zn),
                     fmt=MARKERS[ch_idx], color=COLORS[ch_idx],
-                    label=rf"${self.chan_name_list[ch_idx]}$" if mom == mom_list[0] else None,
+                    label=rf"${self.chan_name_list[ch_idx]}(n^2)$" if mom == mom_list[0] else None,
                     **ERRORBAR_KW,
                 )
 
@@ -173,12 +173,13 @@ class MassPlotter:
 
         for ch_idx, mom_list in enumerate(self.chan_momt_list):
             y, yerr = gv.mean(en_sq_by_ch[ch_idx]), gv.sdev(en_sq_by_ch[ch_idx])
-            plt.errorbar(
-                mom_list, y, yerr,
-                fmt=MARKERS[ch_idx], color=COLORS[ch_idx],
-                label=rf"${self.chan_name_list[ch_idx]}$",
-                **ERRORBAR_KW,
-            )
+            for idx, mom in enumerate(mom_list):
+                plt.errorbar(
+                    mom, y[idx], yerr[idx],
+                    fmt=MARKERS[ch_idx], color=COLORS[ch_idx],
+                    label=rf"${self.chan_name_list[ch_idx]}(n^2)$" if mom == mom_list[0] else None,
+                    **ERRORBAR_KW,
+                )
 
         label_axes(r"$n^2$", rf"$E_n^2$ (GeV$^2$) on {self.tag_name}")
         plt.xlim(0, mom_max)
