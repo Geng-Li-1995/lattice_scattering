@@ -30,6 +30,10 @@ class MathModels:
         return parameter["a"] * x + parameter["b"]
 
     @staticmethod
+    def quadratic(x, parameter):
+        return parameter["a"] * x**2 + parameter["b"] * x + parameter["c"]
+
+    @staticmethod
     def ratio(T, t, p):
         return (
             p["ar"]
@@ -71,6 +75,10 @@ class MathModels:
     @staticmethod
     def prior_linear():
         return {"a": gv.gvar(0, 100), "b": gv.gvar(0, 100)}
+
+    @staticmethod
+    def prior_quadratic():
+        return {"a": gv.gvar(0, 100), "b": gv.gvar(0, 100), "c": gv.gvar(0, 100)}
 
     @staticmethod
     def prior_ratio(meff_prior):

@@ -21,14 +21,18 @@ def _load_npy(path: Path) -> np.ndarray:
     return np.asarray(np.load(path), dtype=np.float64)
 
 
-def _ensemble_tag(ensemble_key: EnsembleKey) -> str:
+def ensemble_tag(ensemble_key: EnsembleKey) -> str:
     ns, _, pion_mass, num_ev = ensemble_key
     return f"L{ns}M{pion_mass}_EV{num_ev}"
 
 
+def moving_frame_d_tag(d_vec: tuple[int, int, int]) -> str:
+    return "d" + "".join(str(int(component)) for component in d_vec)
+
+
 def read_raw_files(config: Config) -> RawCorrelators:
     raw_dir = Path(f"data/{config.input_name}/raw")
-    tag = _ensemble_tag(config.ensemble_key)
+    tag = ensemble_tag(config.ensemble_key)
     meson = None
     tetraquark = None
 
@@ -55,22 +59,26 @@ def read_resampled_files(config: Config) -> ResampleDataDict:
     for corr_type in ("meson", "tetraquark"):
         resampled[corr_type] = {}
         for ensemble_key in config.scattering_list:
-            path = resampled_dir / f"resample_En_{corr_type}_{_ensemble_tag(ensemble_key)}.npy"
+            path = resampled_dir / f"resample_En_{corr_type}_{ensemble_tag(ensemble_key)}.npy"
             arr = _load_npy(path)
             resampled[corr_type][ensemble_key] = arr
             print(f"Resampled {corr_type} Ns={ensemble_key[0]}, shape={arr.shape}")
 
     if config.is_moving_frame:
         resampled["tetraquark_MF"] = {}
+        d_tag = moving_frame_d_tag(config.moving_frame_d_vec)
         for ensemble_key in config.scattering_list:
-            path = resampled_dir / f"resample_En_MF_tetraquark_{_ensemble_tag(ensemble_key)}.npy"
+            path = (
+                resampled_dir
+                / f"resample_En_{d_tag}_tetraquark_{ensemble_tag(ensemble_key)}.npy"
+            )
             arr = _load_npy(path)
             resampled["tetraquark_MF"][ensemble_key] = arr
-            print(f"Resampled MF tetraquark Ns={ensemble_key[0]}, shape={arr.shape}")
+            print(f"Resampled MF tetraquark ({d_tag}) Ns={ensemble_key[0]}, shape={arr.shape}")
 
     resampled["ksi"] = {}
     for ensemble_key in config.scattering_list:
-        path = resampled_dir / f"resample_ksi_meson_{_ensemble_tag(ensemble_key)}.npy"
+        path = resampled_dir / f"resample_ksi_meson_{ensemble_tag(ensemble_key)}.npy"
         arr = _load_npy(path)
         resampled["ksi"][ensemble_key] = arr
         print(f"Resampled ksi meson shape: {arr.shape}")

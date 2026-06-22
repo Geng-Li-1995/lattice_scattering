@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import numpy as np
 
 from input.config import Config
 from plotting.plot_set import (
@@ -51,7 +52,8 @@ class ScatteringPlotter:
 
         new_figure(FIG_STANDARD)
         ref_ns = self.config.scattering_list[0][0]
-        plot_gvar_band(scattering_dict["s_array"][ref_ns], scattering_dict["fit_Ks_curve"])
+        if self.config.scattering_fit_mode == "Ks_linear":
+            plot_gvar_band(scattering_dict["s_array"][ref_ns], scattering_dict["fit_Ks_curve"])
         y_limits = []
 
         for ensemble_idx, ensemble_key in enumerate(self.config.scattering_list):
@@ -82,6 +84,32 @@ class ScatteringPlotter:
         add_legend("upper left")
         self._save("K_s")
 
+    @staticmethod
+    def _plot_kcot_reference(
+        k_sq_grid: np.ndarray,
+        kcot_grid: np.ndarray,
+        color: str,
+        k_sq_mean: np.ndarray,
+        k_sq_err: np.ndarray,
+    ) -> None:
+        plt.plot(
+            k_sq_grid,
+            kcot_grid,
+            color=color,
+            linestyle="--",
+            alpha=0.3,
+            zorder=ZORDER_AUX_LINE,
+        )
+        for m, e in zip(k_sq_mean, k_sq_err):
+            mask = (k_sq_grid >= m - e) & (k_sq_grid <= m + e)
+            plt.plot(
+                k_sq_grid[mask],
+                kcot_grid[mask],
+                color=color,
+                linestyle="-",
+                zorder=ZORDER_FIT_CURVE,
+            )
+
     def plot_kcot(self, scattering_dict: dict) -> None:
         if not self.config.is_tetraquark_analysis:
             return
@@ -101,16 +129,18 @@ class ScatteringPlotter:
             y_limits.append(axis_limits_from_values(kcot[:, 0]))
             frame_slices = self._frame_slices(scattering_dict, ns, len(k_sq_mean), ensemble_idx)
             rest_slice, _, rest_color = frame_slices[0]
-
-            plt.plot(
-                k_sq_grid, kcot_rest_grid,
-                color=rest_color, linestyle="--", alpha=0.3, zorder=ZORDER_AUX_LINE,
+            self._plot_kcot_reference(
+                k_sq_grid, kcot_rest_grid, rest_color, k_sq_mean[rest_slice], k_sq_err[rest_slice]
             )
-            for m, e in zip(k_sq_mean[rest_slice], k_sq_err[rest_slice]):
-                mask = (k_sq_grid >= m - e) & (k_sq_grid <= m + e)
-                plt.plot(
-                    k_sq_grid[mask], kcot_rest_grid[mask],
-                    color=rest_color, linestyle="-", zorder=ZORDER_FIT_CURVE,
+
+            if self.config.is_moving_frame:
+                moving_slice, _, moving_color = frame_slices[1]
+                self._plot_kcot_reference(
+                    scattering_dict["k_sq_array_MF"][ns],
+                    scattering_dict["kcot_array_MF"][ns],
+                    moving_color,
+                    k_sq_mean[moving_slice],
+                    k_sq_err[moving_slice],
                 )
 
             for point_slice, label, color in frame_slices:
@@ -120,6 +150,7 @@ class ScatteringPlotter:
                     k_sq_mean[point_slice],
                     kcot[point_slice, 0],
                     xerr=k_sq_err[point_slice],
+                    yerr=kcot[point_slice, 1],
                     fmt="x",
                     color=color,
                     label=label,

@@ -97,10 +97,11 @@ Performance-sensitive pieces are written to avoid unnecessary Python loops where
 | Load raw / resampled `.npy` correlators | `data/io.py` | `RawCorrelators`, `resampled` |
 | Typed array wrappers (shape-safe I/O) | `data/correlators.py` | `Correlator4D`, `TetraquarkCorrelator` |
 | Build FVE matrix, solve GEVP | `analysis/gevp.py` | `AnalysisCorrelators` |
-| Multi-state cosh fits (\(E_n\), \(Z_n\)) | `analysis/fitting.py` + `models.py` | `en_fit_list` |
-| Dispersion calibration (\(\xi\)) | `analysis/fitting.py` | `disp_fit_list` (meson mode) |
+| Multi-state cosh fits (\(E_n\), \(Z_n\)) | `analysis/fit_mass.py` + `models.py` | `en_fit_list` |
+| Dispersion calibration (\(\xi\)) | `analysis/fit_mass.py` | `disp_fit_list` (meson mode) |
 | Jackknife / bootstrap resampling | `statistics/` | `data/<system>/resampled/*.npy` |
-| Lüscher zeta scattering | `analysis/scattering.py` | `scattering_dict` → \(K(s)\), \(k\cot\delta_0\) |
+| Lüscher zeta scattering | `analysis/scattering.py` + `zeta.py` | per-sample \(K(s)\), \(k\cot\delta_0\) |
+| Scattering-phase fit | `analysis/fit_scattering.py` | `fit_Ks_curve`, `fit_kcot_curve` |
 | Unified plot styling | `plotting/plot_set.py` | TeX fonts, z-order, `save_figure()` |
 | Figure output | `plotting/plot_*.py` | `result/<system>/*.{png,pdf}` (see naming below) |
 
@@ -122,11 +123,14 @@ lattice_scattering/
 │   └── types.py             # Type aliases
 ├── data/
 │   ├── correlators.py       # Correlator4D, TetraquarkCorrelator, Raw/AnalysisCorrelators
-│   └── io.py                # read_raw_files(), read_resampled_files(), read_file()
+│   ├── io.py                # read_raw_files(), read_resampled_files(), path tags
+│   └── scattering_io.py     # moving-frame scatter cache I/O
 ├── analysis/
 │   ├── gevp.py              # FVE matrix, scipy generalized eig, einsum rotation
-│   ├── fitting.py           # RunFitting: effective_mass(), dispersion()
-│   ├── scattering.py        # Lüscher zeta (joblib), K(s) / kcot fits
+│   ├── fit_mass.py          # RunFitting: effective_mass(), dispersion()
+│   ├── fit_scattering.py    # K(s) linear / kcot quadratic fits (scattering_fit_mode)
+│   ├── scattering.py        # scattering orchestration (rest + moving frame)
+│   ├── zeta.py              # Lüscher zeta tables (rest + moving frame)
 │   ├── models.py            # Cosh models, priors, MODEL_REGISTRY
 │   └── utils.py             # en_fit_lookup, disp_fit_lookup, fve_offsets
 ├── statistics/
@@ -286,10 +290,10 @@ Scattering combines both volumes via `Ns_list = [12, 16]`.
 | `correlation_meson_L{Ns}M{M}_EV{EV}.npy` | `[channel, momentum, time, sample]` — `sample` = 400 gauge configs; `EV` = distillation eigenvectors |
 | `correlation_tetraquark_L{Ns}M{M}_EV{EV}.npy` | `[ch_src, mom_src, ch_snk, mom_snk, time, sample]` — same convention |
 | `resample_En_{type}_L{Ns}M{M}_EV{EV}.npy` | Per-configuration energies (400 jackknife/bootstrap samples) |
-| `resample_En_MF_tetraquark_L{Ns}M{M}_EV{EV}.npy` | Moving-frame tetraquark energies, used only when `is_moving_frame=True` |
+| `resample_En_d{d_x}{d_y}{d_z}_tetraquark_L{Ns}M{M}_EV{EV}.npy` | Moving-frame tetraquark energies (e.g. `d001` for `moving_frame_d_vec=(0, 0, 1)`); used only when `is_moving_frame=True` |
 | `resample_ksi_meson_L{Ns}M{M}_EV{EV}.npy` | Dispersion scale \(\xi\) |
 
-For moving-frame scattering, `ch_tetra_MF` selects the tetraquark channel in `resample_En_MF_tetraquark_*`, and `fit_mom_by_ns_MF` selects which moving-frame levels enter the \(K(s)\) fit. These settings are ignored when `is_moving_frame=False`.
+For moving-frame scattering, `ch_tetra_MF` selects the tetraquark channel in `resample_En_d{d_x}{d_y}{d_z}_tetraquark_*`, and `fit_mom_by_ns_MF` selects which moving-frame levels enter the \(K(s)\) fit. Total momentum is set by `moving_frame_d_vec=(0, 0, 1)` with \(\mathbf P=2\pi\mathbf d/L\), and the resampled file tag follows the same vector (e.g. `d001`). Each jackknife/bootstrap sample computes moving-frame zeta directly from its own \(\gamma\), \(\alpha\), and \(q^2\). Per-level results are cached under `data/<system>/resampled/` as a single `resample_scatter_MF_{d}_lam{λ}_{L...}.npy` array with shape `(n_level, n_sample, 4)` for `Ks`, `s`, `k²`, and `k cot δ`; set `regen_moving_frame_scattering=True` to recompute them. The \(k\cot\delta_0\) reference curve uses a cached zeta table built from the sample-averaged ground-state moving energy (for plotting only). Set `regen_rest_zeta=True` or `regen_moving_frame_zeta=True` in the selected input file to rebuild the corresponding zeta cache. These settings are ignored when `is_moving_frame=False` (moving-frame options only).
 
 ---
 

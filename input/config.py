@@ -57,8 +57,17 @@ class Config:
     ch_tetra_MF: int
     fit_mom_by_ns: Dict[int, List[int]]
     fit_mom_by_ns_MF: Dict[int, List[int]]
+    scattering_fit_mode: str
+    rest_zeta_lamda: int
+    rest_zeta_n_q: int
+    regen_rest_zeta: bool
+    moving_frame_zeta_lamda: int
+    moving_frame_zeta_n_q: int
+    regen_moving_frame_zeta: bool
+    regen_moving_frame_scattering: bool
     k_sq_plot_range: Tuple[float, float]
     s_plot_range: Tuple[float, float]
+    moving_frame_d_vec: Tuple[int, int, int]
 
 
 # ===============================
@@ -156,6 +165,15 @@ class BuildConfig:
             ch_tetra_MF=ctrl.ch_tetra_MF,
             fit_mom_by_ns=ctrl.fit_mom_by_ns,
             fit_mom_by_ns_MF=ctrl.fit_mom_by_ns_MF,
+            scattering_fit_mode=ctrl.scattering_fit_mode,
+            rest_zeta_lamda=ctrl.rest_zeta_lamda,
+            rest_zeta_n_q=ctrl.rest_zeta_n_q,
+            regen_rest_zeta=ctrl.regen_rest_zeta,
+            moving_frame_zeta_lamda=ctrl.moving_frame_zeta_lamda,
+            moving_frame_zeta_n_q=ctrl.moving_frame_zeta_n_q,
+            regen_moving_frame_zeta=ctrl.regen_moving_frame_zeta,
+            regen_moving_frame_scattering=ctrl.regen_moving_frame_scattering,
             k_sq_plot_range=ctrl.k_sq_plot_range,
             s_plot_range=ctrl.s_plot_range,
+            moving_frame_d_vec=ctrl.moving_frame_d_vec,
         )

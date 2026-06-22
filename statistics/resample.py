@@ -2,7 +2,7 @@ import numpy as np
 import gvar as gv
 import lsqfit as lsf
 
-from analysis.fitting import RunFitting
+from analysis.fit_mass import RunFitting
 from analysis.gevp import process_GEVP
 from analysis.models import MathModels
 from analysis.utils import en_fit_lookup, ksi_from_disp_fit

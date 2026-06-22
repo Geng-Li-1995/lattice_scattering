@@ -1,6 +1,6 @@
 from input.config import BuildConfig, Config
 from data.io import read_raw_files, read_resampled_files
-from analysis.fitting import RunFitting
+from analysis.fit_mass import RunFitting
 from analysis.gevp import process_GEVP
 from analysis.scattering import run_scattering_analysis
 from plotting.plot_gevp import GEVPPlotter

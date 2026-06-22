@@ -28,7 +28,6 @@ class InputControl:
     is_gevp: bool = True
     is_svd: bool = False
     is_ratio: bool = False
-    is_moving_frame: bool = True
 
     # Pipeline stages
     run_tmin: bool = False
@@ -51,13 +50,23 @@ class InputControl:
     ch_meson_a: int = 4
     ch_meson_b: int = 5
     ch_tetra: int = 0
+    fit_mom_by_ns: Dict[int, List[int]] = field(default_factory=lambda: {16: [0, 1, 2]})
+    scattering_fit_mode: str = (
+        "kcot_quadratic"  # Ks_linear | kcot_quadratic; see fit_scattering.py
+    )
+    rest_zeta_lamda: int = 50
+    rest_zeta_n_q: int = 100_000
+    regen_rest_zeta: bool = False
+
+    # Moving-frame scattering; ignored when is_moving_frame is False.
+    is_moving_frame: bool = True
     ch_tetra_MF: int = 0
-    fit_mom_by_ns: Dict[int, List[int]] = field(
-        default_factory=lambda: {16: [0, 1, 2]}
-    )
-    fit_mom_by_ns_MF: Dict[int, List[int]] = field(
-        default_factory=lambda: {16: [0, 1, 2]}
-    )
+    fit_mom_by_ns_MF: Dict[int, List[int]] = field(default_factory=lambda: {16: [0, 2]})
+    moving_frame_zeta_lamda: int = 50
+    moving_frame_zeta_n_q: int = 10000
+    regen_moving_frame_zeta: bool = False
+    regen_moving_frame_scattering: bool = False
+    moving_frame_d_vec: tuple[int, int, int] = (0, 0, 1)
 
     # Plot ranges for scattering figures.
     k_sq_plot_range: tuple[float, float] = (-0.1, 0.5)
