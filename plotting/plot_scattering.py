@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import numpy as np
 
 from input.config import Config
 from plotting.plot_set import (
@@ -40,6 +41,22 @@ class ScatteringPlotter:
             (slice(rest_count, n_points), f"L{ns} moving", COLORS[(color_idx + 1) % len(COLORS)]),
         ]
 
+    @staticmethod
+    def _axis_limits(mean, err, padding_fraction: float = 0.15) -> tuple[float, float]:
+        mean = np.asarray(mean, dtype=float)
+        err = np.asarray(err, dtype=float)
+        lo = np.min(mean - err)
+        hi = np.max(mean + err)
+        span = hi - lo
+        if span <= 0:
+            span = max(abs(hi), 1.0)
+        padding = padding_fraction * span
+        return lo - padding, hi + padding
+
+    @staticmethod
+    def _combine_axis_limits(*limits: tuple[float, float]) -> tuple[float, float]:
+        return min(lo for lo, _ in limits), max(hi for _, hi in limits)
+
     def plot_Ks(self, scattering_dict: dict) -> None:
         if not self.config.is_tetraquark_analysis:
             return
@@ -47,10 +64,14 @@ class ScatteringPlotter:
         new_figure(FIG_STANDARD)
         ref_ns = self.config.scattering_list[0][0]
         plot_gvar_band(scattering_dict["s_array"][ref_ns], scattering_dict["fit_Ks_curve"])
+        x_limits = []
+        y_limits = []
 
         for ensemble_idx, ensemble_key in enumerate(self.config.scattering_list):
             ns = ensemble_key[0]
             s_pts, ks_pts = scattering_dict["s"][ns], scattering_dict["Ks"][ns]
+            x_limits.append(self._axis_limits(s_pts[:, 0], s_pts[:, 1]))
+            y_limits.append(self._axis_limits(ks_pts[:, 0], ks_pts[:, 1]))
             for point_slice, label, color in self._frame_slices(
                 scattering_dict, ns, len(s_pts), ensemble_idx
             ):
@@ -69,8 +90,8 @@ class ScatteringPlotter:
 
         plt.axhline(0, color="black")
         plt.axvline(0, color="black")
-        plt.xlim(37, 45)
-        plt.ylim(-9, 6)
+        plt.xlim(*self._combine_axis_limits(*x_limits))
+        plt.ylim(*self._combine_axis_limits(*y_limits))
         label_axes(r"$s\,(\rm{GeV}^2)$", r"$K(s)=\sqrt s / (k\cot\delta_0)$")
         add_legend("upper left")
         self._save("K_s")
@@ -82,6 +103,8 @@ class ScatteringPlotter:
         new_figure(FIG_STANDARD)
         ref_ns = self.config.scattering_list[0][0]
         plot_gvar_band(scattering_dict["k_sq_array"][ref_ns], scattering_dict["fit_kcot_curve"])
+        x_limits = []
+        y_limits = []
 
         for ensemble_idx, ensemble_key in enumerate(self.config.scattering_list):
             ns = ensemble_key[0]
@@ -90,6 +113,8 @@ class ScatteringPlotter:
             k_sq_mean = scattering_dict["k_sq"][ns][:, 0]
             k_sq_err = scattering_dict["k_sq"][ns][:, 1]
             kcot = scattering_dict["kcot"][ns]
+            x_limits.append(self._axis_limits(k_sq_mean, k_sq_err))
+            y_limits.append(self._axis_limits(kcot[:, 0], kcot[:, 1]))
             frame_slices = self._frame_slices(scattering_dict, ns, len(k_sq_mean), ensemble_idx)
             rest_slice, _, rest_color = frame_slices[0]
 
@@ -119,8 +144,8 @@ class ScatteringPlotter:
 
         plt.axhline(0, color="black")
         plt.axvline(0, color="black")
-        plt.xlim(-0.25, 1.75)
-        plt.ylim(-15, 15)
+        plt.xlim(*self._combine_axis_limits(*x_limits))
+        plt.ylim(*self._combine_axis_limits(*y_limits))
         label_axes(r"$k^2\,(\rm{GeV}^2)$", r"$k\cot\delta_0\,$(GeV)")
         add_legend("upper left")
         self._save("kcot")
