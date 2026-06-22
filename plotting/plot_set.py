@@ -124,6 +124,17 @@ def label_axes(xlabel: str, ylabel: str) -> None:
     plt.ylabel(ylabel)
 
 
+def axis_limits_from_values(values, padding_fraction: float = 0.08) -> tuple[float, float]:
+    arr = _as_float_array(values)
+    lo = np.min(arr)
+    hi = np.max(arr)
+    span = hi - lo
+    if span <= 0:
+        span = max(abs(hi), 1.0)
+    padding = padding_fraction * span
+    return lo - padding, hi + padding
+
+
 def add_legend(loc: str, ncol: int = 1) -> None:
     leg = plt.legend(loc=loc, ncol=ncol, framealpha=0.95)
     if leg is not None:

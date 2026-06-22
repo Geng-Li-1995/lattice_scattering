@@ -19,6 +19,7 @@ from plotting.plot_set import (
     ZORDER_FIT_CURVE,
     add_legend,
     apply_plot_style,
+    axis_limits_from_values,
     fill_error_band,
     label_axes,
     new_figure,
@@ -107,6 +108,7 @@ class MassPlotter:
 
         en_lookup = en_fit_lookup(en_fit_list)
         mom_max = max(max(moms) for moms in self.chan_momt_list if moms)
+        zn_values = []
         new_figure(FIG_STANDARD)
 
         for ch_idx, mom_list in enumerate(self.chan_momt_list):
@@ -132,6 +134,7 @@ class MassPlotter:
             ref_weff = en_lookup[(ch_idx, mom_list[0])].p["weff_0"]
             for mom in mom_list:
                 zn = en_lookup[(ch_idx, mom)].p["weff_0"] / ref_weff
+                zn_values.append(gv.mean(zn))
                 plt.errorbar(
                     mom, gv.mean(zn), gv.sdev(zn),
                     fmt=MARKERS[ch_idx], color=COLORS[ch_idx],
@@ -141,7 +144,7 @@ class MassPlotter:
 
         label_axes(r"$n^2$", rf"$Z_n/Z_0$ on {self.tag_name}")
         plt.xlim(0, mom_max)
-        plt.ylim(0, 1)
+        plt.ylim(*axis_limits_from_values(zn_values))
         add_legend("upper right")
         self._save("Zn")
 
@@ -184,6 +187,6 @@ class MassPlotter:
         label_axes(r"$n^2$", rf"$E_n^2$ (GeV$^2$) on {self.tag_name}")
         plt.xlim(0, mom_max)
         all_vals = np.concatenate([gv.mean(v) for v in en_sq_by_ch.values()])
-        plt.ylim(np.min(all_vals), np.max(all_vals))
+        plt.ylim(*axis_limits_from_values(all_vals))
         add_legend("upper left")
         self._save("Dispersion")

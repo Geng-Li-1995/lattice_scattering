@@ -1,5 +1,4 @@
 import matplotlib.pyplot as plt
-import numpy as np
 
 from input.config import Config
 from plotting.plot_set import (
@@ -10,6 +9,7 @@ from plotting.plot_set import (
     ZORDER_FIT_CURVE,
     add_legend,
     apply_plot_style,
+    axis_limits_from_values,
     label_axes,
     new_figure,
     plot_gvar_band,
@@ -42,18 +42,6 @@ class ScatteringPlotter:
         ]
 
     @staticmethod
-    def _axis_limits(mean, err, padding_fraction: float = 0.15) -> tuple[float, float]:
-        mean = np.asarray(mean, dtype=float)
-        err = np.asarray(err, dtype=float)
-        lo = np.min(mean - err)
-        hi = np.max(mean + err)
-        span = hi - lo
-        if span <= 0:
-            span = max(abs(hi), 1.0)
-        padding = padding_fraction * span
-        return lo - padding, hi + padding
-
-    @staticmethod
     def _combine_axis_limits(*limits: tuple[float, float]) -> tuple[float, float]:
         return min(lo for lo, _ in limits), max(hi for _, hi in limits)
 
@@ -70,8 +58,8 @@ class ScatteringPlotter:
         for ensemble_idx, ensemble_key in enumerate(self.config.scattering_list):
             ns = ensemble_key[0]
             s_pts, ks_pts = scattering_dict["s"][ns], scattering_dict["Ks"][ns]
-            x_limits.append(self._axis_limits(s_pts[:, 0], s_pts[:, 1]))
-            y_limits.append(self._axis_limits(ks_pts[:, 0], ks_pts[:, 1]))
+            x_limits.append(axis_limits_from_values(s_pts[:, 0]))
+            y_limits.append(axis_limits_from_values(ks_pts[:, 0]))
             for point_slice, label, color in self._frame_slices(
                 scattering_dict, ns, len(s_pts), ensemble_idx
             ):
@@ -113,8 +101,8 @@ class ScatteringPlotter:
             k_sq_mean = scattering_dict["k_sq"][ns][:, 0]
             k_sq_err = scattering_dict["k_sq"][ns][:, 1]
             kcot = scattering_dict["kcot"][ns]
-            x_limits.append(self._axis_limits(k_sq_mean, k_sq_err))
-            y_limits.append(self._axis_limits(kcot[:, 0], kcot[:, 1]))
+            x_limits.append(axis_limits_from_values(k_sq_mean))
+            y_limits.append(axis_limits_from_values(kcot[:, 0]))
             frame_slices = self._frame_slices(scattering_dict, ns, len(k_sq_mean), ensemble_idx)
             rest_slice, _, rest_color = frame_slices[0]
 
