@@ -40,7 +40,7 @@ def run_resample(config: Config) -> None:
 
 
 def main() -> None:
-    builder = BuildConfig("X3872")
+    builder = BuildConfig("Tcccc6600")
     ctrl = builder.input_control
 
     if ctrl.is_meson_analysis:
