@@ -44,9 +44,9 @@ class InputControl:
     Ns_list: ClassVar[list[int]] = [16]  # lattice sizes for scattering
 
     # Scattering analysis: channel indices and fit momentum subsets per Ns
-    ch_meson_a: int = 1
-    ch_meson_b: int = 1
-    ch_tetra: int = 1
+    ch_meson_a: int = 5
+    ch_meson_b: int = 6
+    ch_tetra: int = 0
     fit_mom_by_ns: Dict[int, List[int]] = field(default_factory=lambda: {16: [0, 1]})
 
     scattering_list: ScatteringList = field(default_factory=list)
