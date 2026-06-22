@@ -19,6 +19,11 @@ venv/
 # Jupyter
 .ipynb_checkpoints/
 
+# Tests
+.pytest_cache/
+.coverage
+htmlcov/
+
 # Large binary data and regenerable caches (place .npy files locally; not tracked)
 data/**/*.npy
 
