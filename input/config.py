@@ -64,7 +64,7 @@ class BuildConfig:
     input_name: str
 
     def __post_init__(self):
-        module_name = f"input.{self.input_name}_input"
+        module_name = f"input.input_{self.input_name}"
         self.input_module = importlib.import_module(module_name)
 
         for name in ["InputControl", "ENSEMBLE_DB"]:
@@ -86,14 +86,16 @@ class BuildConfig:
     # --------------------------------------------------
     # Build Config
     # --------------------------------------------------
-    def build_config_from_control(self) -> Config:
+    def build_config_from_control(self, analysis_type: str | None = None) -> Config:
         ctrl = self.input_control
         key = self.ensemble_key
 
         lattice_Ns, lattice_Nt, pion_mass, num_eigenvectors = key
         tag_name = f"L{lattice_Ns}M{pion_mass}_EV{num_eigenvectors}"
 
-        analysis_type = ctrl.analysis_type()
+        analysis_type = analysis_type or ctrl.analysis_type()
+        if analysis_type not in ("meson", "tetraquark"):
+            raise ValueError(f"Unknown analysis_type: {analysis_type}")
         if key not in self.ensemble_db:
             raise ValueError(f"Unknown ensemble key: {key}")
 
@@ -128,8 +130,8 @@ class BuildConfig:
             n_state=n_state,
             meff_prior=meff_prior,
             weff_prior=weff_prior,
-            is_meson_analysis=ctrl.is_meson_analysis,
-            is_tetraquark_analysis=ctrl.is_tetraquark_analysis,
+            is_meson_analysis=analysis_type == "meson",
+            is_tetraquark_analysis=analysis_type == "tetraquark",
             is_gevp=ctrl.is_gevp,
             is_svd=ctrl.is_svd,
             is_ratio=ctrl.is_ratio,

@@ -7,11 +7,12 @@ from input.types import EnsembleKey, ResampleDataDict
 
 
 def _corr_types(config: Config) -> list[str]:
-    if config.is_tetraquark_analysis:
-        return ["meson", "tetraquark"]
+    corr_types = []
     if config.is_meson_analysis:
-        return ["meson"]
-    raise ValueError("No channel requested in config.")
+        corr_types.append("meson")
+    if config.is_tetraquark_analysis:
+        corr_types.append("tetraquark")
+    return corr_types
 
 
 def _load_npy(path: Path) -> np.ndarray:
@@ -43,16 +44,15 @@ def read_raw_files(config: Config) -> RawCorrelators:
     return RawCorrelators(meson=meson, tetraquark=tetraquark)
 
 
-def read_file(config: Config) -> tuple[RawCorrelators, ResampleDataDict]:
-    raw = read_raw_files(config)
+def read_resampled_files(config: Config) -> ResampleDataDict:
     resampled: ResampleDataDict = {}
 
     if not config.run_scattering:
-        return raw, resampled
+        return resampled
 
     resampled_dir = Path(f"data/{config.input_name}/resampled")
 
-    for corr_type in _corr_types(config):
+    for corr_type in ("meson", "tetraquark"):
         resampled[corr_type] = {}
         for ensemble_key in config.scattering_list:
             path = resampled_dir / f"resample_En_{corr_type}_{_ensemble_tag(ensemble_key)}.npy"
@@ -67,4 +67,9 @@ def read_file(config: Config) -> tuple[RawCorrelators, ResampleDataDict]:
         resampled["ksi"][ensemble_key] = arr
         print(f"Resampled ksi meson shape: {arr.shape}")
 
-    return raw, resampled
+    return resampled
+
+
+def read_file(config: Config) -> tuple[RawCorrelators, ResampleDataDict]:
+    raw = read_raw_files(config)
+    return raw, read_resampled_files(config)

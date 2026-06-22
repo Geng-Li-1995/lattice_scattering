@@ -1,4 +1,4 @@
-# Tcccc6600_input.py
+# input_Tcccc6600.py
 
 from dataclasses import dataclass, field
 from typing import ClassVar, Dict, List
@@ -10,8 +10,8 @@ from input.types import EnsembleKey, EnsembleEntry, ScatteringList
 class InputControl:
     """Central configuration controlling analysis, plotting, and lattice setup.
 
-    Meson and tetraquark analysis are mutually exclusive. If both flags are True
-    at init, tetraquark wins (see __post_init__).
+    Meson and tetraquark switches are independent. If both are False, the main
+    analysis steps are skipped while scattering can still use resampled inputs.
     """
 
     tetraquark_name: str = "Tcccc6600"
@@ -22,7 +22,7 @@ class InputControl:
     num_eigenvectors: int = 0
     pion_mass: int = 0
 
-    # Analysis options (mutually exclusive: tetraquark wins if both are True)
+    # Analysis options
     is_meson_analysis: bool = False
     is_tetraquark_analysis: bool = True
     is_gevp: bool = True
@@ -31,7 +31,7 @@ class InputControl:
 
     run_tmin: bool = False
     run_resample: bool = (
-        False  # set by run_resample.py; suppresses plots during resampling
+        False  # run resampling from main.py; suppresses plots during resampling
     )
     run_scattering: bool = True
 
@@ -61,12 +61,6 @@ class InputControl:
             raise ValueError(
                 f'plot_format must be "png" or "pdf", got {self.plot_format!r}'
             )
-        if self.is_meson_analysis and self.is_tetraquark_analysis:
-            self.is_meson_analysis = False
-        elif self.is_meson_analysis:
-            self.is_tetraquark_analysis = False
-        elif not self.is_tetraquark_analysis:
-            self.is_tetraquark_analysis = True
 
         self.lattice_Ns, self.lattice_Nt, self.pion_mass, self.num_eigenvectors = (
             self.get_lattice_params(self.lattice_Ns)

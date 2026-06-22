@@ -6,6 +6,20 @@
 
 ---
 
+## Supported Systems
+
+The repository includes input configurations for three physics systems. Switch systems by changing the system name passed to `BuildConfig(...)` in `main.py`.
+
+| System | Input file | Ensembles in config | Notes |
+|--------|------------|---------------------|-------|
+| `Tcccc6600` | `input/input_Tcccc6600.py` | \(L=12,16\), \(m_\pi=420\), EV \(170/120\) | Fully-charm showcase system; example figures are tracked |
+| `X3872` | `input/input_X3872.py` | \(L=16\), \(m_\pi=420\), EV \(70\) | Charmonium-like scattering setup; current default in `main.py` |
+| `Zc3900` | `input/input_Zc3900.py` | \(L=16\), \(m_\pi=420\), EV \(70\) | Charged charmonium-like scattering setup |
+
+Only source code, input files, docs, and selected result figures are versioned. Raw correlator and resampled `.npy` data for all systems must be provided locally under `data/<system>/`; they are intentionally ignored by git and are not synchronized to GitHub.
+
+---
+
 ## Highlights
 
 | Domain | What this repo demonstrates |
@@ -42,26 +56,22 @@ Fully-charm tetraquarks \(T_{cc\bar{c}\bar{c}}\) are among the most striking exo
 
 ## Pipeline Architecture
 
-Two-stage batch workflow — run from the **project root**:
+Switch-driven batch workflow — run from the **project root**:
 
 ```
 Monte Carlo correlators          data/<system>/raw/*.npy
   [ch, mom, t, sample]           [ch_src, mom_src, ch_snk, mom_snk, t, sample]
          │
-         ├─► run_resample.py          Step 1 — resampling (before scattering)
-         │     jackknife / bootstrap over gauge configs
-         │     full GEVP + fit per leave-one-out sample
-         │         └─► data/<system>/resampled/*.npy
-         │
-         └─► main.py                    Step 2 — analysis + plots
+         └─► main.py                    controlled by InputControl switches
+               ├─► run_resample_statistics()   jackknife / bootstrap → resampled/*.npy
                ├─► process_GEVP()       FVE matrix build + generalized eig (tetraquark)
-               ├─► effective_mass()     Bayesian cosh fits (always)
+               ├─► effective_mass()     Bayesian cosh fits
                ├─► dispersion()         meson calibration (optional)
                └─► run_scattering_analysis()   Lüscher zeta → K(s), k cot δ₀
                          └─► result/<system>/*.{png|pdf}   (plot_format)
 ```
 
-**Compute profile:** Step 1 is the heavy stage — \(O(N_{\mathrm{cfg}})\) full analysis passes (**400 jackknife leaves** per ensemble). Step 2 loads precomputed resampled energies and runs scattering fits plus figure generation. Zeta tables are built once and cached at `data/zeta/zeta_00_rest_array.npy`.
+**Compute profile:** `run_resample=True` is the heavy stage — \(O(N_{\mathrm{cfg}})\) full analysis passes (**400 jackknife leaves** per ensemble). Scattering loads precomputed resampled energies and runs scattering fits plus figure generation. Zeta tables are built once and cached at `data/zeta/zeta_00_rest_array.npy`.
 
 ---
 
@@ -79,7 +89,7 @@ Monte Carlo correlators          data/<system>/raw/*.npy
 | Unified plot styling | `plotting/plot_set.py` | TeX fonts, z-order, `save_figure()` |
 | Figure output | `plotting/plot_*.py` | `result/<system>/*.{png,pdf}` (see naming below) |
 
-**Design:** configuration, I/O, analysis, statistics, and plotting are decoupled. A new physics system needs only `input/<System>_input.py` and a one-line change in `main.py`.
+**Design:** configuration, I/O, analysis, statistics, and plotting are decoupled. A new physics system needs only `input/input_<System>.py` and a one-line change in `main.py`.
 
 ---
 
@@ -88,15 +98,16 @@ Monte Carlo correlators          data/<system>/raw/*.npy
 ```
 lattice_scattering/
 ├── main.py                  # GEVP → fits → plots → scattering
-├── run_resample.py          # Jackknife / bootstrap → resampled energies
 ├── input/
 │   ├── config.py            # BuildConfig → immutable Config dataclass
-│   ├── Tcccc6600_input.py   # InputControl switches + ENSEMBLE_DB priors
+│   ├── input_Tcccc6600.py   # InputControl switches + ENSEMBLE_DB priors
+│   ├── input_X3872.py
+│   ├── input_Zc3900.py
 │   ├── selector.py          # Correlator4D and fit model selection
 │   └── types.py             # Type aliases
 ├── data/
 │   ├── correlators.py       # Correlator4D, TetraquarkCorrelator, Raw/AnalysisCorrelators
-│   └── io.py                # read_raw_files(), read_file()
+│   └── io.py                # read_raw_files(), read_resampled_files(), read_file()
 ├── analysis/
 │   ├── gevp.py              # FVE matrix, scipy generalized eig, einsum rotation
 │   ├── fitting.py           # RunFitting: effective_mass(), dispersion()
@@ -138,15 +149,15 @@ Extension comes from `plot_format` in `InputControl` (default **`png`**). Below,
 
 ### `main.py` execution order
 
-1. `BuildConfig("Tcccc6600").build_config_from_control()`
-2. `read_file()` — raw correlators; resampled files if `run_scattering=True`
-3. `process_GEVP()` + GEVP plots — tetraquark mode only, if `is_gevp=True`
-4. `effective_mass()` — **always runs** (stdout diagnostics)
-5. `En_*` plot — if `plot_meff=True`; `Zn_meson_*` only if `is_meson_analysis=True`
+1. Build configs from `input/input_<System>.py`
+2. If `run_resample=True`, generate resampled files for each enabled analysis branch
+3. If `run_resample=False`, run enabled raw-data analyses: meson if `is_meson_analysis=True`, tetraquark if `is_tetraquark_analysis=True`
+4. `process_GEVP()` + GEVP plots — tetraquark analysis only, if `is_gevp=True`
+5. `effective_mass()` — runs for each enabled raw-data analysis
 6. Dispersion fit + plot — if `plot_dispersion=True` and meson mode
-7. Scattering + `K_s_scattering.*`, `kcot_scattering.*` — if `run_scattering=True` and tetraquark mode
+7. Scattering + `K_s_scattering.*`, `kcot_scattering.*` — if `run_scattering=True`
 
-Meson and tetraquark modes are **mutually exclusive** (tetraquark wins if both are set). Scattering needs prior meson resample runs for all `Ns_list` volumes — see [docs/RUNNING.md](docs/RUNNING.md).
+Meson and tetraquark analysis switches are independent. If both are `False`, raw-data analysis is skipped and scattering can still run from existing resampled `.npy` files. Scattering needs prior meson and tetraquark resample runs for all `Ns_list` volumes — see [docs/RUNNING.md](docs/RUNNING.md).
 
 ---
 
@@ -200,10 +211,11 @@ cd lattice_scattering
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-# Step 1 — resampling (required before scattering)
-python run_resample.py
+# Generate resampled files when needed:
+# set run_resample=True in input/input_<System>.py, then run
+python main.py
 
-# Step 2 — analysis and plotting
+# Analysis, plotting, and scattering are also controlled by input switches
 python main.py
 ```
 
@@ -211,12 +223,13 @@ python main.py
 
 ### Configuration
 
-All parameters live in `input/Tcccc6600_input.py`. Key switches:
+All parameters live in the selected system input file, e.g. `input/input_Tcccc6600.py`, `input/input_X3872.py`, or `input/input_Zc3900.py`. Key switches:
 
 ```python
 lattice_Ns: int = 12
-is_tetraquark_analysis: bool = True   # default workflow (mutually exclusive with meson mode)
+is_tetraquark_analysis: bool = True   # tetraquark raw-data workflow
 is_gevp: bool = True
+run_resample: bool = False            # generate resampled files from raw data
 run_scattering: bool = True
 plot_meff: bool = True
 plot_dispersion: bool = True          # meson mode only
@@ -240,10 +253,10 @@ Scattering combines both volumes via `Ns_list = [12, 16]`.
 | Content | In repository? |
 |---------|----------------|
 | Analysis source code | Yes |
-| Configuration (`input/Tcccc6600_input.py`) | Yes |
+| Configurations (`input/input_Tcccc6600.py`, `input/input_X3872.py`, `input/input_Zc3900.py`) | Yes |
 | Result figures (`result/Tcccc6600/`, format set by `plot_format`) | Yes |
-| Raw correlators (`data/**/raw/*.npy`) | **No** (~80 MB) |
-| Resampled energies (`data/**/resampled/*.npy`) | **No** |
+| Raw correlators (`data/**/*.npy`) | **No**; local only, ignored by git |
+| Resampled energies and \(\xi\) (`data/**/*.npy`) | **No**; local only, ignored by git |
 
 | File pattern | Shape / content |
 |--------------|-----------------|
@@ -265,7 +278,7 @@ Scattering combines both volumes via `Ns_list = [12, 16]`.
 
 - Plotting calls `plt.show()`; on headless clusters set matplotlib backend `Agg` (see [docs/RUNNING.md](docs/RUNNING.md)).
 - Draw order: error band → fit curve → data points → legend (`ZORDER_*` in `plotting/plot_set.py`). Fit bands use `fill_between` with `FIT_CURVE_ALPHA` (default **0.3**).
-- Analysis modes are mutually exclusive: tetraquark wins if both meson and tetraquark flags are set. Meson \(Z_n\) / dispersion require a separate run with `is_meson_analysis=True`, `is_tetraquark_analysis=False`.
+- Meson and tetraquark analysis switches are independent. Set both to `False` to skip raw-data analysis and run scattering from existing resampled files.
 - Tetraquark + scattering needs resampled meson energies and \(\xi\) from prior meson resample runs.
 
 ---
