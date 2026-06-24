@@ -3,11 +3,11 @@
 from dataclasses import dataclass, field
 from typing import ClassVar, Dict, List
 
-from input.types import EnsembleKey, EnsembleEntry, ScatteringList
+from input.config import InputControlMixin, EnsembleKey, EnsembleEntry, ScatteringList
 
 
 @dataclass
-class InputControl:
+class InputControl(InputControlMixin):
     """Central configuration controlling analysis, plotting, and lattice setup.
 
     Meson and tetraquark switches are independent. If both are False, the main
@@ -53,7 +53,7 @@ class InputControl:
     fit_mom_by_ns: Dict[int, List[int]] = field(
         default_factory=lambda: {16: [0, 1]}
     )
-    scattering_fit_mode: str = "Ks_linear"  # Ks_linear | kcot_quadratic; see fit_scattering.py
+    scattering_fit_mode: str = "Ks_linear"  # Ks_linear | kcot_quadratic; see analysis/scattering.py
     rest_zeta_lamda: int = 50
     rest_zeta_n_q: int = 100_000
     regen_rest_zeta: bool = False
@@ -76,18 +76,6 @@ class InputControl:
 
     scattering_list: ScatteringList = field(default_factory=list)
 
-    def __post_init__(self):
-        """Initialize lattice parameters based on lattice_Ns."""
-        if self.plot_format not in ("png", "pdf"):
-            raise ValueError(
-                f'plot_format must be "png" or "pdf", got {self.plot_format!r}'
-            )
-
-        self.lattice_Ns, self.lattice_Nt, self.pion_mass, self.num_eigenvectors = (
-            self.get_lattice_params(self.lattice_Ns)
-        )
-        self.scattering_list = [self.get_lattice_params(ns) for ns in self.Ns_list]
-
     @staticmethod
     def get_lattice_params(lattice_Ns: int) -> EnsembleKey:
         """Return (lattice_Ns, lattice_Nt, pion_mass, num_eigenvectors) for a given lattice_Ns."""
@@ -98,18 +86,6 @@ class InputControl:
                 return 16, 128, 420, 70
             case _:
                 raise ValueError(f"Unknown lattice_Ns={lattice_Ns}")
-
-    def ensemble_key(self) -> EnsembleKey:
-        """Map configuration → ENSEMBLE_DB key."""
-        return (self.lattice_Ns, self.lattice_Nt, self.pion_mass, self.num_eigenvectors)
-
-    def analysis_type(self) -> str:
-        """Return the default branch when BuildConfig does not request one."""
-        if self.is_tetraquark_analysis:
-            return "tetraquark"
-        if self.is_meson_analysis:
-            return "meson"
-        raise ValueError("Neither meson nor tetraquark analysis is selected.")
 
 
 # ======================================================

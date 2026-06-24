@@ -3,33 +3,27 @@ import matplotlib.pyplot as plt
 
 from input.config import Config
 from plotting.plot_set import (
+    BasePlotter,
     FIG_MATRIX,
     FS_COLORBAR,
     FS_TICK,
     FS_TICK_DENSE,
-    apply_plot_style,
     label_axes,
     new_figure,
-    save_figure,
 )
 
 
-class GEVPPlotter:
+class GEVPPlotter(BasePlotter):
 
     def __init__(self, config: Config):
-        apply_plot_style()
-        self.config = config
-        self.input_name = config.input_name
+        super().__init__(config)
         self.tag_name = config.tag_name
         self.chan_momt_list = config.chan_momt_list
         self.chan_name_list = config.chan_name_list
-        self.t0, self.t1, self.tx = config.t_GEVP
+        self.tx = config.t_GEVP[2]
 
-    def _save(self, name: str) -> None:
-        save_figure(
-            f"result/{self.input_name}/{name}_{self.tag_name}",
-            plot_format=self.config.plot_format,
-        )
+    def _save_gevp(self, name: str) -> None:
+        self._save(f"result/{self.input_name}/{name}_{self.tag_name}")
 
     def _fve_labels(self) -> list[str]:
         return [
@@ -55,7 +49,7 @@ class GEVPPlotter:
         plt.yticks(np.arange(len(labels)), labels, fontsize=FS_TICK_DENSE)
         plt.title(title)
         label_axes("snk", "src")
-        self._save(filename)
+        self._save_gevp(filename)
 
     def plot_GEVP(
         self,
@@ -73,7 +67,7 @@ class GEVPPlotter:
         plt.yticks(np.arange(n), np.arange(n) + 1, fontsize=FS_TICK)
         label_axes(r"$\beta$", r"$n$")
         plt.title(rf"GEVP eigenvector $v_\beta^{{(n)}}$ on {self.tag_name}")
-        self._save("GEVP_eigenvector")
+        self._save_gevp("GEVP_eigenvector")
 
         for matrix, title, filename, vmin, vmax in (
             (matrix_before_gevp, "Before", "GEVP_before", -0.2, 0.2),

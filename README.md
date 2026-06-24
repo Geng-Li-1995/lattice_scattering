@@ -61,7 +61,7 @@ This project is structured as **research-grade software**: modular stages, typed
 | **Complex computational pipelines** | Multi-stage workflow: raw correlators → GEVP → fits → resampling → scattering → publication figures; each stage is switch-controlled and independently rerunnable |
 | **Research → robust software** | Physics prototypes (new systems, moving-frame scattering, fit modes) are integrated via config files and shared modules, not one-off scripts |
 | **Software testing & review** | Unit tests for statistics, I/O, scattering algebra, and fit indexing; CI gates merges to `main` |
-| **Python on scientific codebases** | Dataclasses, typed aliases, registry-based models, separation of orchestration (`scattering.py`) from numerics (`zeta.py`) and I/O (`data/`) |
+| **Python on scientific codebases** | Dataclasses, typed aliases, registry-based models; shared config in `input/config.py`; scattering numerics and orchestration unified in `analysis/scattering.py` |
 | **HPC-aware design** | Leave-one-out jackknife over **400 configurations**; parallel zeta generation; cached `.npy` artefacts so expensive stages are not repeated |
 | **Unix / reproducible runs** | Single entrypoint (`main.py`); documented dependencies; headless plotting via `MPLBACKEND=Agg` in CI |
 | **Collaboration with domain scientists** | `ENSEMBLE_DB` encodes channel names, priors, and fit windows chosen by lattice practitioners; plotting uses LaTeX channel labels |
@@ -216,8 +216,7 @@ pytest tests/test_scattering.py -v    # run one module
 |-------------------|----------|
 | `statistics/jackknife.py` | Mean, standard error, leave-one-out consistency |
 | `data/scattering_io.py` | Moving-frame cache round-trip, path tags |
-| `analysis/scattering.py` | Rest-frame Källén / kcot algebra |
-| `analysis/fit_scattering.py` | Moving-frame fit momentum indexing |
+| `analysis/scattering.py` | Rest-frame Källén / kcot algebra, zeta tables, phase fits, moving-frame indexing |
 | `plotting/plot_set.py` | Axis limit helpers |
 
 Tests deliberately avoid depending on gitignored lattice data so CI and lightweight clones stay fast — the same separation used when operational systems must validate software logic independently of multi-TB datasets.
@@ -240,8 +239,7 @@ Tests deliberately avoid depending on gitignored lattice data so CI and lightwei
 | Multi-state cosh fits (\(E_n\), \(Z_n\)) | `analysis/fit_mass.py` + `models.py` | `en_fit_list` |
 | Dispersion calibration (\(\xi\)) | `analysis/fit_mass.py` | `disp_fit_list` (meson mode) |
 | Jackknife / bootstrap resampling | `statistics/` | `data/<system>/resampled/*.npy` |
-| Lüscher zeta scattering | `analysis/scattering.py` + `zeta.py` | per-sample \(K(s)\), \(k\cot\delta_0\) |
-| Scattering-phase fit | `analysis/fit_scattering.py` | `fit_Ks_curve`, `fit_kcot_curve` |
+| Lüscher zeta scattering & phase fit | `analysis/scattering.py` | per-sample \(K(s)\), \(k\cot\delta_0\); `fit_Ks_curve`, `fit_kcot_curve` |
 | Unified plot styling | `plotting/plot_set.py` | TeX fonts, z-order, `save_figure()` |
 | Figure output | `plotting/plot_*.py` | `result/<system>/*.{png,pdf}` (see naming below) |
 
@@ -259,24 +257,19 @@ lattice_scattering/
 ├── requirements-dev.txt     # pytest + runtime deps
 ├── tests/                   # unit tests (no lattice .npy required)
 ├── input/
-│   ├── config.py            # BuildConfig → immutable Config dataclass
+│   ├── config.py            # types, InputControlMixin, Config, BuildConfig, SelectorType
 │   ├── input_Tcccc6600.py   # InputControl switches + ENSEMBLE_DB priors
 │   ├── input_X3872.py
-│   ├── input_Zc3900.py
-│   ├── selector.py          # Correlator4D and fit model selection
-│   └── types.py             # Type aliases
+│   └── input_Zc3900.py
 ├── data/
 │   ├── correlators.py       # Correlator4D, TetraquarkCorrelator, Raw/AnalysisCorrelators
-│   ├── io.py                # read_raw_files(), read_resampled_files(), path tags
+│   ├── io.py                # read_raw_files(), read_resampled_files()
 │   └── scattering_io.py     # moving-frame scatter cache I/O
 ├── analysis/
 │   ├── gevp.py              # FVE matrix, scipy generalized eig, einsum rotation
-│   ├── fit_mass.py          # RunFitting: effective_mass(), dispersion()
-│   ├── fit_scattering.py    # K(s) linear / kcot quadratic fits (scattering_fit_mode)
-│   ├── scattering.py        # scattering orchestration (rest + moving frame)
-│   ├── zeta.py              # Lüscher zeta tables (rest + moving frame)
-│   ├── models.py            # Cosh models, priors, MODEL_REGISTRY
-│   └── utils.py             # en_fit_lookup, disp_fit_lookup, fve_offsets
+│   ├── fit_mass.py          # RunFitting, fit lookups, dispersion helper
+│   ├── scattering.py        # zeta tables, phase fits, scattering pipeline (rest + MF)
+│   └── models.py            # Cosh models, priors, MODEL_REGISTRY
 ├── statistics/
 │   ├── jackknife.py / bootstrap.py
 │   └── resample.py          # run_resample_statistics()

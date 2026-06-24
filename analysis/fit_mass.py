@@ -1,13 +1,37 @@
-import numpy as np
-import lsqfit as lsf
+from typing import Any
+
 import gvar as gv
+import lsqfit as lsf
+import numpy as np
 
 from analysis.models import MathModels
-from analysis.utils import en_fit_lookup, ksi_from_disp_fit
 from data.correlators import AnalysisCorrelators
-from input.config import Config
-from input.selector import SelectorType
-from input.types import FitResultList
+from input.config import Config, FitResultList, SelectorType
+
+
+def en_fit_lookup(en_fit_list: FitResultList) -> dict[tuple[int, int], Any]:
+    return {
+        (entry["ch_idx"], entry["mom"]): entry["fit"]
+        for entry in en_fit_list
+        if "mom" in entry
+    }
+
+
+def disp_fit_lookup(disp_fit_list: FitResultList) -> dict[int, Any]:
+    return {entry["ch_idx"]: entry["fit"] for entry in disp_fit_list}
+
+
+def ksi_from_disp_fit(disp_fit, at_invs: float, ns: int) -> float:
+    return 2 * np.pi * at_invs / np.sqrt(disp_fit.p["a"]) / ns
+
+
+def fit_dispersion(mom_list: list[int] | np.ndarray, en_sq_list) -> Any:
+    return lsf.nonlinear_fit(
+        data=(np.asarray(mom_list), en_sq_list),
+        fcn=MathModels.linear,
+        prior=MathModels.prior_linear(),
+        p0=None,
+    )
 
 
 class RunFitting:
@@ -15,7 +39,6 @@ class RunFitting:
     def __init__(self, config: Config):
         self.config = config
         self.lattice_Nt = config.lattice_Nt
-        self.results: FitResultList = []
 
     def effective_mass(self, corr: AnalysisCorrelators) -> FitResultList:
         selector = SelectorType(self.config, corr)
@@ -51,7 +74,6 @@ class RunFitting:
 
                 en_fit_list.append({"ch_idx": ch_idx, "mom": mom, "fit": mass_fit})
 
-        self.results = en_fit_list
         return en_fit_list
 
     def dispersion(self, en_fit_list: FitResultList) -> FitResultList:
@@ -65,17 +87,11 @@ class RunFitting:
                 (lookup[(ch_idx, mom)].p["meff_0"] * at_invs) ** 2 for mom in mom_list
             ]
 
-            disp_fit = lsf.nonlinear_fit(
-                data=(np.array(mom_list), en_sq_list),
-                fcn=MathModels.linear,
-                prior=MathModels.prior_linear(),
-                p0=None,
-            )
+            disp_fit = fit_dispersion(mom_list, en_sq_list)
 
             if not self.config.run_resample:
                 print("ch_idx, ksi =", ch_idx, ksi_from_disp_fit(disp_fit, at_invs, ns), disp_fit)
 
             disp_fit_list.append({"ch_idx": ch_idx, "fit": disp_fit})
 
-        self.results = disp_fit_list
         return disp_fit_list

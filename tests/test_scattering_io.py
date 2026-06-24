@@ -2,7 +2,7 @@ from pathlib import Path
 
 import numpy as np
 
-from data.io import ensemble_tag, moving_frame_d_tag
+from input.config import ensemble_tag, moving_frame_d_tag
 from data.scattering_io import (
     SCATTER_STAT_NAMES,
     load_mf_scatter_all,

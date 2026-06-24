@@ -3,7 +3,6 @@ from dataclasses import dataclass
 import numpy as np
 from scipy import linalg
 
-from analysis.utils import fve_offsets
 from data.correlators import AnalysisCorrelators, Correlator4D, RawCorrelators
 from input.config import Config
 
@@ -27,7 +26,7 @@ def process_GEVP(
     chan_momt_list = config.chan_momt_list
     n_mom_per_ch = [len(moms) for moms in chan_momt_list]
     n_fve = sum(n_mom_per_ch)
-    offsets = fve_offsets(n_mom_per_ch)
+    offsets = np.cumsum([0, *n_mom_per_ch[:-1]])
 
     matrix_before_gevp = np.zeros((n_fve, n_fve, tetra.n_time, tetra.n_sample))
     for ch_src, mom_list_src in enumerate(chan_momt_list):

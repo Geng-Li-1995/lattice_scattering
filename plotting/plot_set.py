@@ -1,10 +1,12 @@
-"""Shared plot aesthetics: figure sizes, fonts, colors, and helpers."""
+"""Shared plot aesthetics: figure sizes, fonts, colors, helpers, and base plotter."""
 
 import gvar as gv
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+
+from input.config import Config
 
 # ---------------------------------------------------------------------------
 # Figure sizes (width, height) in inches
@@ -27,7 +29,7 @@ FS_TICK_DENSE = 11      # crowded GEVP matrix axis labels
 # Color / marker / linestyle palettes
 # ---------------------------------------------------------------------------
 COLORS = [
-    "blue", "red", "green", "violet", "orange",
+    "blue", "red", "green", "purple", "orange",
     "black", "cyan", "navy", "yellow", "brown",
 ]
 MARKERS = ["o", "x", "s", "^", "v", "<", ">", "*", "D", "p"]
@@ -135,6 +137,96 @@ def axis_limits_from_values(values, padding_fraction: float = 0.10) -> tuple[flo
     return lo - padding, hi + padding
 
 
+def combine_axis_limits(*limits: tuple[float, float]) -> tuple[float, float]:
+    return min(lo for lo, _ in limits), max(hi for _, hi in limits)
+
+
+def draw_origin_axes() -> None:
+    plt.axhline(0, color="black")
+    plt.axvline(0, color="black")
+
+
+def palette_color_at(index: int, *, skip: tuple[str, ...] = ()) -> str:
+    while COLORS[index % len(COLORS)] in skip:
+        index += 1
+    return COLORS[index % len(COLORS)]
+
+
+def plot_errorbars(
+    x,
+    y,
+    *,
+    xerr=None,
+    yerr=None,
+    color: str,
+    label: str,
+    fmt: str = "x",
+) -> None:
+    plt.errorbar(
+        x,
+        y,
+        xerr=xerr,
+        yerr=yerr,
+        fmt=fmt,
+        color=color,
+        label=label,
+        **ERRORBAR_KW,
+    )
+
+
+def plot_kcot_zeta_reference(
+    k_sq_grid: np.ndarray,
+    kcot_grid: np.ndarray,
+    color: str,
+    k_sq_mean: np.ndarray,
+    k_sq_err: np.ndarray,
+) -> None:
+    plt.plot(
+        k_sq_grid,
+        kcot_grid,
+        color=color,
+        linestyle="--",
+        alpha=0.3,
+        zorder=ZORDER_AUX_LINE,
+    )
+    for mean, err in zip(k_sq_mean, k_sq_err):
+        mask = (k_sq_grid >= mean - err) & (k_sq_grid <= mean + err)
+        plt.plot(
+            k_sq_grid[mask],
+            kcot_grid[mask],
+            color=color,
+            linestyle="-",
+            zorder=ZORDER_FIT_CURVE,
+        )
+
+
+def plot_ik_parabola(k_sq_lim: tuple[float, float], color: str) -> None:
+    """Below-threshold ik vs k^2: k^2 = -(ik)^2 (horizontal parabola, opens left)."""
+    k_lo = min(k_sq_lim[0], 0.0)
+    if k_lo >= 0:
+        return
+    k_sq = np.linspace(k_lo, 0.0, 300)
+    ik = np.sqrt(-k_sq)
+    plt.plot(
+        k_sq,
+        ik,
+        color=color,
+        linestyle=":",
+        linewidth=1.5,
+        label=r"$ik$",
+        zorder=ZORDER_AUX_LINE,
+    )
+    plt.plot(k_sq, -ik, color=color, linestyle=":", linewidth=1.5, zorder=ZORDER_AUX_LINE)
+
+
+def ik_parabola_axis_limits(k_sq_lo: float) -> tuple[float, float] | None:
+    if k_sq_lo >= 0:
+        return None
+    k_sq_neg = np.linspace(k_sq_lo, 0.0, 50)
+    ik_vals = np.concatenate([np.sqrt(-k_sq_neg), -np.sqrt(-k_sq_neg)])
+    return axis_limits_from_values(ik_vals)
+
+
 def add_legend(loc: str, ncol: int = 1) -> None:
     leg = plt.legend(loc=loc, ncol=ncol, framealpha=0.95)
     if leg is not None:
@@ -169,3 +261,15 @@ def plot_gvar_band(
     ax = plt.gca()
     fill_error_band(x, mean - err, mean + err, color, alpha=alpha, zorder=zorder)
     ax.plot(x, mean, color=color, linestyle="-", zorder=ZORDER_FIT_CURVE)
+
+
+class BasePlotter:
+    """Common setup and save helper for all plotters."""
+
+    def __init__(self, config: Config) -> None:
+        apply_plot_style()
+        self.config = config
+        self.input_name = config.input_name
+
+    def _save(self, stem: str) -> None:
+        save_figure(stem, plot_format=self.config.plot_format)

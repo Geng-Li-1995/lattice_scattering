@@ -1,7 +1,6 @@
 import numpy as np
 
-from analysis.scattering import _analyze_rest_momentum
-from analysis.zeta import kallen, q_sq_linspace
+from analysis.scattering import _analyze_rest_momentum, kallen, q_sq_linspace
 
 
 def test_kallen_matches_formula():

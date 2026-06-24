@@ -2,9 +2,7 @@ from pathlib import Path
 
 import numpy as np
 
-from data.io import ensemble_tag, moving_frame_d_tag
-from input.config import Config
-from input.types import EnsembleKey
+from input.config import Config, EnsembleKey, ensemble_tag, moving_frame_d_tag
 
 SCATTER_STAT_NAMES = ("Ks", "s", "k_sq", "kcot")
 

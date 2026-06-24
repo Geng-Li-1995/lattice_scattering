@@ -1,7 +1,7 @@
 from dataclasses import replace
 
 from input.config import BuildConfig
-from analysis.fit_scattering import fit_mom_indices
+from analysis.scattering import fit_mom_indices
 
 
 def test_fit_mom_indices_rest_only():

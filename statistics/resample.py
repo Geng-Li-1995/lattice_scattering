@@ -1,11 +1,9 @@
 import numpy as np
 import gvar as gv
-import lsqfit as lsf
+from pathlib import Path
 
-from analysis.fit_mass import RunFitting
+from analysis.fit_mass import RunFitting, en_fit_lookup, fit_dispersion, ksi_from_disp_fit
 from analysis.gevp import process_GEVP
-from analysis.models import MathModels
-from analysis.utils import en_fit_lookup, ksi_from_disp_fit
 from data.correlators import RawCorrelators
 from input.config import Config
 from statistics.bootstrap import Bootstrap
@@ -83,12 +81,7 @@ def run_resample_statistics(config: Config, raw: RawCorrelators) -> None:
                 en_samples[ch_idx, mom, sample_idx] = gv.mean(en)
 
             if config.is_meson_analysis:
-                disp_fit = lsf.nonlinear_fit(
-                    data=(np.asarray(mom_list), en_sq_list),
-                    fcn=MathModels.linear,
-                    prior=MathModels.prior_linear(),
-                    p0=None,
-                )
+                disp_fit = fit_dispersion(mom_list, en_sq_list)
                 ksi_samples[ch_idx, sample_idx] = gv.mean(
                     ksi_from_disp_fit(disp_fit, at_invs, ns)
                 )
@@ -99,7 +92,8 @@ def run_resample_statistics(config: Config, raw: RawCorrelators) -> None:
             f"\nEn:\n{en_samples[:, :, sample_idx]}",
         )
 
-    out_dir = f"data/{config.input_name}/resampled"
-    np.save(f"{out_dir}/resample_En_{analysis_corr_type}_{config.tag_name}.npy", en_samples)
+    out_dir = Path(f"data/{config.input_name}/resampled")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    np.save(out_dir / f"resample_En_{analysis_corr_type}_{config.tag_name}.npy", en_samples)
     if config.is_meson_analysis:
-        np.save(f"{out_dir}/resample_ksi_{analysis_corr_type}_{config.tag_name}.npy", ksi_samples)
+        np.save(out_dir / f"resample_ksi_{analysis_corr_type}_{config.tag_name}.npy", ksi_samples)

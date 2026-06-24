@@ -2,8 +2,13 @@ import numpy as np
 from pathlib import Path
 
 from data.correlators import Correlator4D, RawCorrelators, TetraquarkCorrelator
-from input.config import Config
-from input.types import EnsembleKey, ResampleDataDict
+from input.config import (
+    Config,
+    EnsembleKey,
+    ResampleDataDict,
+    ensemble_tag,
+    moving_frame_d_tag,
+)
 
 
 def _corr_types(config: Config) -> list[str]:
@@ -19,15 +24,6 @@ def _load_npy(path: Path) -> np.ndarray:
     if not path.exists():
         raise FileNotFoundError(f"Missing file: {path}")
     return np.asarray(np.load(path), dtype=np.float64)
-
-
-def ensemble_tag(ensemble_key: EnsembleKey) -> str:
-    ns, _, pion_mass, num_ev = ensemble_key
-    return f"L{ns}M{pion_mass}_EV{num_ev}"
-
-
-def moving_frame_d_tag(d_vec: tuple[int, int, int]) -> str:
-    return "d" + "".join(str(int(component)) for component in d_vec)
 
 
 def read_raw_files(config: Config) -> RawCorrelators:
@@ -84,8 +80,3 @@ def read_resampled_files(config: Config) -> ResampleDataDict:
         print(f"Resampled ksi meson shape: {arr.shape}")
 
     return resampled
-
-
-def read_file(config: Config) -> tuple[RawCorrelators, ResampleDataDict]:
-    raw = read_raw_files(config)
-    return raw, read_resampled_files(config)

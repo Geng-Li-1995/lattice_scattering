@@ -4,12 +4,11 @@ import lsqfit as lsf
 import matplotlib.pyplot as plt
 
 from analysis.models import MathModels
-from analysis.utils import disp_fit_lookup, en_fit_lookup
+from analysis.fit_mass import disp_fit_lookup, en_fit_lookup
 from data.correlators import AnalysisCorrelators
-from input.config import Config
-from input.selector import SelectorType
-from input.types import FitResultList
+from input.config import Config, SelectorType, FitResultList
 from plotting.plot_set import (
+    BasePlotter,
     COLORS,
     ERRORBAR_KW,
     FIG_STANDARD,
@@ -18,22 +17,18 @@ from plotting.plot_set import (
     MARKERS,
     ZORDER_FIT_CURVE,
     add_legend,
-    apply_plot_style,
     axis_limits_from_values,
     fill_error_band,
     label_axes,
     new_figure,
-    save_figure,
 )
 from statistics.resample import get_resampler
 
 
-class MassPlotter:
+class MassPlotter(BasePlotter):
 
     def __init__(self, config: Config):
-        apply_plot_style()
-        self.config = config
-        self.input_name = config.input_name
+        super().__init__(config)
         self.tag_name = config.tag_name
         self.at_invs = config.at_invs
         self.lattice_Nt = config.lattice_Nt
@@ -41,16 +36,13 @@ class MassPlotter:
         self.chan_name_list = config.chan_name_list
         self.corr_type = "tetraquark" if config.is_tetraquark_analysis else "meson"
 
+    def _save_mass(self, name: str) -> None:
+        self._save(f"result/{self.input_name}/{name}_{self.corr_type}_{self.tag_name}")
+
     def _cosh_with_error(self, corr_1d: np.ndarray):
         jack_samples = get_resampler(self.config, corr_1d).resample()
         cosh_samples = MathModels.generate_cosh_from_data(jack_samples, time_axis=0)
         return get_resampler(self.config, cosh_samples).gvar()
-
-    def _save(self, name: str) -> None:
-        save_figure(
-            f"result/{self.input_name}/{name}_{self.corr_type}_{self.tag_name}",
-            plot_format=self.config.plot_format,
-        )
 
     def plot_En(self, corr: AnalysisCorrelators, en_fit_list: FitResultList) -> None:
         selector = SelectorType(self.config, corr)
@@ -100,7 +92,7 @@ class MassPlotter:
         plt.xlim(1, self.lattice_Nt - 1)
         plt.ylim(gv.mean(np.min(all_en)) - ylim_min, gv.mean(np.max(all_en)) + 0.2)
         add_legend("lower right", ncol=2)
-        self._save("En")
+        self._save_mass("En")
 
     def plot_Zn(self, en_fit_list: FitResultList) -> None:
         if not self.config.is_meson_analysis:
@@ -146,7 +138,7 @@ class MassPlotter:
         plt.xlim(0, mom_max)
         plt.ylim(*axis_limits_from_values(zn_values))
         add_legend("upper right")
-        self._save("Zn")
+        self._save_mass("Zn")
 
     def plot_dispersion(
         self, en_fit_list: FitResultList, disp_fit_list: FitResultList
@@ -189,4 +181,4 @@ class MassPlotter:
         all_vals = np.concatenate([gv.mean(v) for v in en_sq_by_ch.values()])
         plt.ylim(*axis_limits_from_values(all_vals))
         add_legend("upper left")
-        self._save("Dispersion")
+        self._save_mass("Dispersion")

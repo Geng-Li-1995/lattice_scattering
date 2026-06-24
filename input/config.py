@@ -1,16 +1,81 @@
-# config.py
+from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Tuple
+from typing import Any, Callable, Dict, List, Tuple, TypeAlias
 import importlib
+
 import numpy as np
 
-from input.types import EnsembleKey, ScatteringList
+from analysis.models import MODEL_REGISTRY
+from data.correlators import AnalysisCorrelators, Correlator4D
+
+# ---------------------------------------------------------------------------
+# Shared types and path tags
+# ---------------------------------------------------------------------------
+EnsembleKey: TypeAlias = Tuple[int, int, int, int]  # (Ns, Nt, pion_mass, num_eigenvectors)
+ScatteringList: TypeAlias = List[EnsembleKey]
+ResampleDataDict: TypeAlias = Dict[str, Dict[EnsembleKey, np.ndarray]]
+
+ModelFn: TypeAlias = Callable[..., Any]
+PriorFn: TypeAlias = Callable[..., Dict[str, Any]]
+FitResultList: TypeAlias = List[Dict[str, Any]]
+EnsembleEntry: TypeAlias = Dict[str, Any]
 
 
-# ===============================
-# Output Config used in analysis
-# ===============================
+def ensemble_tag(ensemble_key: EnsembleKey) -> str:
+    ns, _, pion_mass, num_ev = ensemble_key
+    return f"L{ns}M{pion_mass}_EV{num_ev}"
+
+
+def moving_frame_d_tag(d_vec: tuple[int, int, int]) -> str:
+    return "d" + "".join(str(int(component)) for component in d_vec)
+
+
+# ---------------------------------------------------------------------------
+# InputControl base (subclassed in input_<project>.py)
+# ---------------------------------------------------------------------------
+class InputControlMixin:
+    """Common post-init and helpers; subclasses supply field defaults and ``get_lattice_params``."""
+
+    lattice_Ns: int
+    lattice_Nt: int
+    pion_mass: int
+    num_eigenvectors: int
+    plot_format: str
+    Ns_list: list[int]
+    scattering_list: ScatteringList
+    is_meson_analysis: bool
+    is_tetraquark_analysis: bool
+
+    def __post_init__(self) -> None:
+        if self.plot_format not in ("png", "pdf"):
+            raise ValueError(
+                f'plot_format must be "png" or "pdf", got {self.plot_format!r}'
+            )
+
+        self.lattice_Ns, self.lattice_Nt, self.pion_mass, self.num_eigenvectors = (
+            self.get_lattice_params(self.lattice_Ns)
+        )
+        self.scattering_list = [self.get_lattice_params(ns) for ns in self.Ns_list]
+
+    @staticmethod
+    def get_lattice_params(lattice_Ns: int) -> EnsembleKey:
+        raise NotImplementedError
+
+    def ensemble_key(self) -> EnsembleKey:
+        return (self.lattice_Ns, self.lattice_Nt, self.pion_mass, self.num_eigenvectors)
+
+    def analysis_type(self) -> str:
+        if self.is_tetraquark_analysis:
+            return "tetraquark"
+        if self.is_meson_analysis:
+            return "meson"
+        raise ValueError("Neither meson nor tetraquark analysis is selected.")
+
+
+# ---------------------------------------------------------------------------
+# Runtime Config used in analysis
+# ---------------------------------------------------------------------------
 @dataclass
 class Config:
     input_name: str
@@ -70,9 +135,9 @@ class Config:
     moving_frame_d_vec: Tuple[int, int, int]
 
 
-# ===============================
-# BuildConfig
-# ===============================
+# ---------------------------------------------------------------------------
+# BuildConfig: load input_<project>.py and materialize Config
+# ---------------------------------------------------------------------------
 @dataclass
 class BuildConfig:
     input_name: str
@@ -89,23 +154,17 @@ class BuildConfig:
         self.ensemble_db = self.input_module.ENSEMBLE_DB
         self.ensemble_key = self.input_control.ensemble_key()
 
-    # --------------------------------------------------
-    # Convert [state][chan][mom] -> [chan][mom][state]
-    # --------------------------------------------------
     @staticmethod
     def _reorder_prior(raw_prior):
         arr = np.array(raw_prior, dtype=float)
         return np.transpose(arr, (1, 2, 0)).tolist()
 
-    # --------------------------------------------------
-    # Build Config
-    # --------------------------------------------------
     def build_config_from_control(self, analysis_type: str | None = None) -> Config:
         ctrl = self.input_control
         key = self.ensemble_key
 
         lattice_Ns, lattice_Nt, pion_mass, num_eigenvectors = key
-        tag_name = f"L{lattice_Ns}M{pion_mass}_EV{num_eigenvectors}"
+        tag_name = ensemble_tag(key)
 
         analysis_type = analysis_type or ctrl.analysis_type()
         if analysis_type not in ("meson", "tetraquark"):
@@ -121,7 +180,6 @@ class BuildConfig:
         t_min = db.get("tmin_arry", [[20] * len(m) for m in chan_momt_list])
         t_max = [[lattice_Nt - t for t in row] for row in t_min]
 
-        # extract priors
         meff_prior_raw = [v for k, v in sorted(db.items()) if "prir_meff" in k]
         weff_prior_raw = [v for k, v in sorted(db.items()) if "prir_weff" in k]
 
@@ -177,3 +235,29 @@ class BuildConfig:
             s_plot_range=ctrl.s_plot_range,
             moving_frame_d_vec=ctrl.moving_frame_d_vec,
         )
+
+
+# ---------------------------------------------------------------------------
+# Correlator / fit-model selection for the active analysis mode
+# ---------------------------------------------------------------------------
+class SelectorType:
+    """Return the active Correlator4D and cosh fit model for the current analysis mode."""
+
+    def __init__(self, config: Config, corr: AnalysisCorrelators):
+        self.config = config
+        self.corr = corr
+
+    def get_data(self) -> Correlator4D:
+        return self.corr.active(
+            self.config.is_meson_analysis,
+            self.config.is_tetraquark_analysis,
+        )
+
+    def get_model(self) -> tuple[ModelFn, PriorFn]:
+        if self.config.is_ratio:
+            return MODEL_REGISTRY["ratio"]["fn"], MODEL_REGISTRY["ratio"]["prior"]
+
+        key = {2: "two_states", 3: "three_states"}.get(self.config.n_state)
+        if key is None:
+            raise ValueError(f"Unsupported n_state={self.config.n_state}")
+        return MODEL_REGISTRY[key]["fn"], MODEL_REGISTRY[key]["prior"]

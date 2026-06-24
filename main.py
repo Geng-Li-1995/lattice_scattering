@@ -39,23 +39,30 @@ def run_resample(config: Config) -> None:
     run_resample_statistics(config, raw)
 
 
+def _run_analysis_branch(
+    builder: BuildConfig, analysis_type: str, ctrl
+) -> None:
+    enabled = (
+        ctrl.is_meson_analysis
+        if analysis_type == "meson"
+        else ctrl.is_tetraquark_analysis
+    )
+    if not enabled:
+        return
+
+    config = builder.build_config_from_control(analysis_type)
+    if ctrl.run_resample:
+        run_resample(config)
+    else:
+        run_analysis(config)
+
+
 def main() -> None:
     builder = BuildConfig("Tcccc6600")
     ctrl = builder.input_control
 
-    if ctrl.is_meson_analysis:
-        meson_config = builder.build_config_from_control("meson")
-        if ctrl.run_resample:
-            run_resample(meson_config)
-        else:
-            run_analysis(meson_config)
-
-    if ctrl.is_tetraquark_analysis:
-        tetraquark_config = builder.build_config_from_control("tetraquark")
-        if ctrl.run_resample:
-            run_resample(tetraquark_config)
-        else:
-            run_analysis(tetraquark_config)
+    _run_analysis_branch(builder, "meson", ctrl)
+    _run_analysis_branch(builder, "tetraquark", ctrl)
 
     scattering_config = builder.build_config_from_control("tetraquark")
     resampled = read_resampled_files(scattering_config)

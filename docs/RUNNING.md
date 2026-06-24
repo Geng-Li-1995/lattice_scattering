@@ -91,7 +91,7 @@ data/Tcccc6600/
 
 Tetraquark raw-data analysis loads tetraquark raw correlators; meson raw-data analysis loads meson raw correlators. Scattering can be run independently from existing resampled files and requires meson `resample_En_*`, tetraquark `resample_En_*`, and `resample_ksi_meson_*` files for all volumes in `Ns_list`. Moving-frame scattering additionally reads `resample_En_d{d_x}{d_y}{d_z}_tetraquark_*` (e.g. `d001` for `moving_frame_d_vec=(0, 0, 1)`) when `is_moving_frame=True`.
 
-The zeta lookup table `data/zeta/zeta_00_rest_array.npy` is auto-loaded if present; otherwise it is generated on first run (slow — uses `joblib` parallel summation).
+The zeta lookup table `data/zeta/zeta_00_rest_lam{λ}_nq{n_q}.npy` is auto-loaded if present; otherwise it is generated on first run (slow — uses `joblib` parallel summation). Default rest-frame cache: `zeta_00_rest_lam50_nq100000.npy`.
 
 ### X3872 and Zc3900 data
 
@@ -149,7 +149,7 @@ class InputControl:
     ch_tetra_MF: int = 0
     fit_mom_by_ns: Dict[int, List[int]] = {12: [0, 1, 2], 16: [0, 1]}
     fit_mom_by_ns_MF: Dict[int, List[int]] = {16: [0, 1]}
-    scattering_fit_mode: str = "Ks_linear"  # see analysis/fit_scattering.py
+    scattering_fit_mode: str = "Ks_linear"  # see analysis/scattering.py (SCATTERING_FIT_MODES)
     rest_zeta_lamda: int = 50
     rest_zeta_n_q: int = 100_000
     regen_rest_zeta: bool = False
@@ -172,7 +172,7 @@ class InputControl:
 | `ch_tetra_MF` | Moving-frame tetraquark channel index; ignored when `is_moving_frame=False` |
 | `fit_mom_by_ns` | Momentum subsets per \(L\) for the \(K(s)\) linear fit |
 | `fit_mom_by_ns_MF` | Moving-frame levels per \(L\) for the \(K(s)\) linear fit; ignored when `is_moving_frame=False` |
-| `scattering_fit_mode` | Scattering fit in `analysis/fit_scattering.py`: `"Ks_linear"` fits \(K(s)\) linearly in \(s\); `"kcot_quadratic"` fits \(k\cot\delta_0=a(k^2)^2+bk^2+c\) |
+| `scattering_fit_mode` | Scattering fit in `analysis/scattering.py`: `"Ks_linear"` fits \(K(s)\) linearly in \(s\); `"kcot_quadratic"` fits \(k\cot\delta_0=a(k^2)^2+bk^2+c\) |
 | `rest_zeta_lamda` | Cutoff \(\lambda\) for rest-frame zeta summation |
 | `rest_zeta_n_q` | Number of \(q^2\) grid points for rest-frame zeta table |
 | `regen_rest_zeta` | Rebuild cached rest-frame zeta tables in `data/zeta/` |
@@ -288,7 +288,7 @@ Fit parameters and diagnostics are printed to stdout during the run.
 | LaTeX error on plot | TeX not installed | Install TeX or set `"text.usetex": False` in `plotting/plot_set.py` → `RC_PARAMS` |
 | `Unknown lattice_Ns` | Invalid `lattice_Ns` value | Use `12` or `16` (see `get_lattice_params`) |
 | `Unknown ensemble key` | `lattice_Ns` / analysis type mismatch | Check `ENSEMBLE_DB` keys in input file |
-| Slow first run | Zeta table generation | Wait for completion; file is cached at `data/zeta/zeta_00_rest_array.npy` |
+| Slow first run | Zeta table generation | Wait for completion; file is cached under `data/zeta/zeta_00_rest_lam{λ}_nq{n_q}.npy` |
 | Memory / time on resample | Full jackknife over all configs | Expected; reduce test size or run on a machine with more RAM |
 
 ---
