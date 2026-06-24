@@ -11,7 +11,7 @@ import numpy as np
 from joblib import Parallel, delayed
 
 from analysis.models import MathModels
-from data.scattering_io import (
+from data.io import (
     SCATTER_STAT_NAMES,
     load_mf_scatter_all,
     load_mf_scatter_ref,

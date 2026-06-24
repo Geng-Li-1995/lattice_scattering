@@ -215,7 +215,7 @@ pytest tests/test_scattering.py -v    # run one module
 | Module under test | Examples |
 |-------------------|----------|
 | `statistics/jackknife.py` | Mean, standard error, leave-one-out consistency |
-| `data/scattering_io.py` | Moving-frame cache round-trip, path tags |
+| `data/io.py` | Raw/resampled I/O, moving-frame cache round-trip, path tags |
 | `analysis/scattering.py` | Rest-frame Källén / kcot algebra, zeta tables, phase fits, moving-frame indexing |
 | `plotting/plot_set.py` | Axis limit helpers |
 
@@ -263,8 +263,7 @@ lattice_scattering/
 │   └── input_Zc3900.py
 ├── data/
 │   ├── correlators.py       # Correlator4D, TetraquarkCorrelator, Raw/AnalysisCorrelators
-│   ├── io.py                # read_raw_files(), read_resampled_files()
-│   └── scattering_io.py     # moving-frame scatter cache I/O
+│   └── io.py                # read_raw/resampled files; moving-frame scatter cache I/O
 ├── analysis/
 │   ├── gevp.py              # FVE matrix, scipy generalized eig, einsum rotation
 │   ├── fit_mass.py          # RunFitting, fit lookups, dispersion helper

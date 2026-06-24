@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 
 from input.config import ensemble_tag, moving_frame_d_tag
-from data.scattering_io import (
+from data.io import (
     SCATTER_STAT_NAMES,
     load_mf_scatter_all,
     load_mf_scatter_ref,
