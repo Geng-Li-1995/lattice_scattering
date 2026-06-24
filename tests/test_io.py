@@ -1,17 +1,19 @@
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
 
-from input.config import ensemble_tag, moving_frame_d_tag
 from data.io import (
     SCATTER_STAT_NAMES,
     load_mf_scatter_all,
     load_mf_scatter_ref,
     mf_scatter_array_to_results,
+    mf_scatter_path,
     mf_scatter_results_to_array,
     save_mf_scatter_all,
     save_mf_scatter_ref,
 )
+from input.config import BuildConfig, ensemble_tag, moving_frame_d_tag
 
 
 def test_ensemble_tag_format():
@@ -21,6 +23,14 @@ def test_ensemble_tag_format():
 def test_moving_frame_d_tag_format():
     assert moving_frame_d_tag((0, 0, 1)) == "d001"
     assert moving_frame_d_tag((1, 0, 2)) == "d102"
+
+
+def test_mf_scatter_path_naming():
+    config = BuildConfig("X3872").build_config_from_control("tetraquark")
+    config = replace(config, moving_frame_zeta_lamda=50)
+    path = mf_scatter_path(config, (16, 128, 420, 70))
+    assert path.name == "resample_scatter_MF_d001_lam50_L16M420_EV70.npy"
+    assert path.parent.name == "resampled"
 
 
 def test_mf_scatter_cache_roundtrip():
@@ -40,8 +50,14 @@ def test_mf_scatter_cache_roundtrip():
 
 def test_mf_scatter_file_roundtrip(tmp_path: Path):
     path = tmp_path / "scatter.npy"
-    results = [{"Ks": np.array([1.0, 2.0]), "s": np.array([3.0, 4.0]),
-                "k_sq": np.array([5.0, 6.0]), "kcot": np.array([7.0, 8.0])}]
+    results = [
+        {
+            "Ks": np.array([1.0, 2.0]),
+            "s": np.array([3.0, 4.0]),
+            "k_sq": np.array([5.0, 6.0]),
+            "kcot": np.array([7.0, 8.0]),
+        }
+    ]
     save_mf_scatter_all(path, results)
     loaded = load_mf_scatter_all(path)
     assert loaded is not None

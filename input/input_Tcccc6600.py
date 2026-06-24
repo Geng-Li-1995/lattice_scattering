@@ -17,7 +17,7 @@ class InputControl(InputControlMixin):
     tetraquark_name: str = "Tcccc6600"
 
     # Lattice setup
-    lattice_Ns: int = 12  # supported: 12, 16
+    lattice_Ns: int = 16  # supported: 12, 16, 24
     lattice_Nt: int = 0
     num_eigenvectors: int = 0
     pion_mass: int = 0
@@ -53,7 +53,9 @@ class InputControl(InputControlMixin):
     fit_mom_by_ns: Dict[int, List[int]] = field(
         default_factory=lambda: {12: [0, 1, 2], 16: [0, 1]}
     )
-    scattering_fit_mode: str = "Ks_linear"  # Ks_linear | kcot_quadratic; see analysis/scattering.py
+    scattering_fit_mode: str = (
+        "Ks_linear"  # Ks_linear | kcot_quadratic; see analysis/scattering.py
+    )
     rest_zeta_lamda: int = 50
     rest_zeta_n_q: int = 100_000
     regen_rest_zeta: bool = False

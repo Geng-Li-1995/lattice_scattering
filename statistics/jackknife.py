@@ -64,17 +64,10 @@ class Jackknife:
 
     def error(self) -> np.ndarray:
         """
-        Compute jackknife standard error from resampled data.
-        Note: Input resampled data here!!!
+        Jackknife standard error along ``axis``.
 
-        Parameters
-        ----------
-        data : np.ndarray, optional
-
-        Returns
-        -------
-        np.ndarray
-            Jackknife standard error.
+        For leave-one-out means passed as ``data``, this matches the usual
+        √(n−1) × sample_std formula.
         """
 
         n = self.data.shape[self.axis]
@@ -104,21 +97,12 @@ class Jackknife:
 
     def resample_manual(self, idx: int = 0) -> np.ndarray:
         """
-        Generate a leave-one-out dataset by removing one sample along the specified axis.
+        Generate a leave-one-out dataset by removing one sample along ``axis``.
 
         Parameters
         ----------
-        data : np.ndarray
-            Input array containing all samples.
         idx : int
             Index of the sample to remove.
-        axis : int
-            Axis corresponding to the sample dimension.
-
-        Returns
-        -------
-        np.ndarray
-            Array with the specified sample removed along the sample axis.
         """
         # Validate inputs
         if not isinstance(self.data, np.ndarray):

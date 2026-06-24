@@ -8,16 +8,16 @@ class MathModels:
     @staticmethod
     def two_states(t, parameter, lattice_Nt: int):
         mid = lattice_Nt / 2
-        return parameter["weff_0"] * gv.cosh(parameter["meff_0"] * (t - mid)) + parameter[
-            "weff_1"
-        ] * gv.cosh(parameter["meff_1"] * (t - mid))
+        return parameter["weff_0"] * gv.cosh(
+            parameter["meff_0"] * (t - mid)
+        ) + parameter["weff_1"] * gv.cosh(parameter["meff_1"] * (t - mid))
 
     @staticmethod
     def three_states(t, parameter, lattice_Nt: int):
         mid = lattice_Nt / 2
         return (
             parameter["weff_0"] * gv.cosh(parameter["meff_0"] * (t - mid))
-            + parameter["weff_1"]
+            + parameter["weff_1"] * gv.cosh(parameter["meff_1"] * (t - mid))
             + parameter["weff_2"] * gv.cosh(parameter["meff_2"] * (t - mid))
         )
 
@@ -91,6 +91,9 @@ class MathModels:
 
 MODEL_REGISTRY = {
     "two_states": {"fn": MathModels.two_states, "prior": MathModels.prior_two_states},
-    "three_states": {"fn": MathModels.three_states, "prior": MathModels.prior_three_states},
+    "three_states": {
+        "fn": MathModels.three_states,
+        "prior": MathModels.prior_three_states,
+    },
     "ratio": {"fn": MathModels.ratio, "prior": MathModels.prior_ratio},
 }

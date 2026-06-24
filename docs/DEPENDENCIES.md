@@ -83,12 +83,10 @@ If TeX is not available, set `"text.usetex": False` in `plotting/plot_set.py` â†
 
 ## Optional / Development
 
-Not required to run `main.py`, but useful for development:
-
 | Tool | Purpose |
 |------|---------|
 | `ipython` / `jupyter` | Interactive exploration of correlators and fit results |
-| `pytest` | Unit tests (`tests/`); install via `requirements-dev.txt` |
+| `pytest` | Unit tests in `tests/` (see [TESTING.md](TESTING.md)); install via `requirements-dev.txt` |
 
 ---
 

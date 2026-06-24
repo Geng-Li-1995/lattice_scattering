@@ -278,7 +278,20 @@ Fit parameters and diagnostics are printed to stdout during the run.
 
 ---
 
-## 7. Troubleshooting
+## 7. Running tests locally
+
+Tests do **not** require lattice `.npy` files. From the project root:
+
+```bash
+pip install -r requirements-dev.txt
+MPLBACKEND=Agg pytest
+```
+
+This matches the GitHub Actions CI job. See [TESTING.md](TESTING.md) for what each test file covers.
+
+---
+
+## 8. Troubleshooting
 
 | Problem | Likely cause | Fix |
 |---------|--------------|-----|
@@ -293,7 +306,7 @@ Fit parameters and diagnostics are printed to stdout during the run.
 
 ---
 
-## 8. Adding a New Physics System
+## 9. Adding a New Physics System
 
 1. Copy `input/input_Tcccc6600.py` → `input/input_<NewSystem>.py`
 2. Fill in `InputControl` defaults and `ENSEMBLE_DB` entries

@@ -206,18 +206,22 @@ View runs: [github.com/Geng-Li-1995/lattice_scattering/actions](https://github.c
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements-dev.txt   # installs pytest + runtime deps
-pytest                                # run full suite
+MPLBACKEND=Agg pytest                 # run full suite (same as CI)
 pytest tests/test_scattering.py -v    # run one module
 ```
 
+See [docs/TESTING.md](docs/TESTING.md) for how tests run **without** lattice `.npy` data.
+
 ### Test coverage (current)
 
-| Module under test | Examples |
-|-------------------|----------|
-| `statistics/jackknife.py` | Mean, standard error, leave-one-out consistency |
-| `data/io.py` | Raw/resampled I/O, moving-frame cache round-trip, path tags |
-| `analysis/scattering.py` | Rest-frame Källén / kcot algebra, zeta tables, phase fits, moving-frame indexing |
-| `plotting/plot_set.py` | Axis limit helpers |
+| Test file | Module under test |
+|-----------|-------------------|
+| `tests/test_jackknife.py` | `statistics/jackknife.py` |
+| `tests/test_io.py` | `data/io.py`, path tags in `input/config.py` |
+| `tests/test_scattering.py` | `analysis/scattering.py` (Källén, rest-frame kcot) |
+| `tests/test_scattering_fit.py` | `analysis/scattering.py` (`fit_mom_indices`) |
+| `tests/test_fit_mass.py` | `analysis/fit_mass.py` (lookups, ξ from dispersion) |
+| `tests/test_plot_set.py` | `plotting/plot_set.py` |
 
 Tests deliberately avoid depending on gitignored lattice data so CI and lightweight clones stay fast — the same separation used when operational systems must validate software logic independently of multi-TB datasets.
 
@@ -255,7 +259,7 @@ lattice_scattering/
 ├── .github/workflows/ci.yml # GitHub Actions: pytest on push/PR
 ├── pytest.ini
 ├── requirements-dev.txt     # pytest + runtime deps
-├── tests/                   # unit tests (no lattice .npy required)
+├── tests/                   # unit tests (no lattice .npy required); see docs/TESTING.md
 ├── input/
 │   ├── config.py            # types, InputControlMixin, Config, BuildConfig, SelectorType
 │   ├── input_Tcccc6600.py   # InputControl switches + ENSEMBLE_DB priors
@@ -373,7 +377,7 @@ pip install -r requirements.txt
 
 # Optional: install dev tools and run tests (same as CI)
 pip install -r requirements-dev.txt
-pytest
+MPLBACKEND=Agg pytest
 
 # Generate resampled files when needed:
 # set run_resample=True in input/input_<System>.py, then run
@@ -383,7 +387,7 @@ python main.py
 python main.py
 ```
 
-> Raw correlators (`data/**/raw/*.npy`) and resampled files are **not** in this repository. Place them locally before running. Full setup: [docs/RUNNING.md](docs/RUNNING.md).
+> Testing guide: [docs/TESTING.md](docs/TESTING.md). Raw correlators (`data/**/raw/*.npy`) and resampled files are **not** in this repository. Place them locally before running. Full setup: [docs/RUNNING.md](docs/RUNNING.md).
 
 ### Configuration
 
