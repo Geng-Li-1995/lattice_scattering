@@ -2,33 +2,40 @@
 
 [![CI](https://github.com/Geng-Li-1995/lattice_scattering/actions/workflows/ci.yml/badge.svg)](https://github.com/Geng-Li-1995/lattice_scattering/actions/workflows/ci.yml)
 
-Config-driven Python pipeline for lattice tetraquark spectroscopy and finite-volume scattering: **6D correlators** (\(\sim10^7\) `float64`/file, **401** samples on the `sample` axis), GEVP, Bayesian multi-state fits, jackknife resampling, and Lüscher \(K(s)\) / \(k\cot\delta_0\) extraction.
+Config-driven Python pipeline for lattice tetraquark spectroscopy and finite-volume scattering on **6D correlators** (\(\sim10^7\) `float64`/file, **401** jackknife samples).
 
 | | |
 |--|--|
-| **Systems** | `Tcccc6600`, `X3872`, `Zc3900` — switch via `BuildConfig("<System>")` in `main.py` |
+| **Systems** | `Tcccc6600`, `X3872`, `Zc3900` — `BuildConfig("<System>")` in `main.py` |
 | **Reference** | Tcccc6600: \(\eta_c\eta_c\) / \(J/\psi\,J/\psi\), \(L=12,16\), \(a_t^{-1}=7.219\) GeV |
-| **Data** | Raw / resampled `.npy` are local (`data/<system>/`); not in git |
-| **Stack** | Python 3.10+ · NumPy · SciPy · gvar · lsqfit · joblib · Matplotlib · pytest |
+| **Data** | Raw / resampled `.npy` local only (`data/<system>/`); not in git |
+
+---
+
+## Technical capabilities
+
+| Layer | Tools & design |
+|-------|----------------|
+| **Tensor I/O** | Typed `Correlator4D` / `TetraquarkCorrelator` wrappers; `ENSEMBLE_DB` config per system |
+| **Linear algebra** | `scipy.linalg.eig` GEVP; FVE matrix from 6D data; rotation via `numpy.einsum` |
+| **Fitting** | `lsqfit` + `gvar` Bayesian NL fit; 2-/3-state cosh, dispersion, \(t_{\min}\) scans, 4Q/2Q ratio |
+| **Resampling** | Leave-one-out jackknife / bootstrap (**401** samples); errors propagated as correlated `gvar` |
+| **Scattering** | Lüscher zeta on \(10^5\)-point grids; `joblib` parallel build; rest + moving frame; \(K(s)\), \(k\cot\delta_0\) |
+| **Caching** | `resampled/*.npy` and `data/zeta/*.npy` avoid repeated raw I/O and zeta summation |
+| **Plotting** | Modular `plot_*.py`; LaTeX labels; `plot_format` PNG/PDF |
+| **Quality** | `pytest` without lattice data; GitHub Actions Python 3.10 & 3.12 |
+
+**Stack:** Python 3.10+ · NumPy · SciPy · gvar · lsqfit · joblib · Matplotlib · pytest
 
 ---
 
 ## Physics (Tcccc6600)
 
-Fully-charm tetraquarks \(T_{cc\bar{c}\bar{c}}\) are exotic-hadron candidates at the LHC. Correlators → GEVP (remove \(\eta_c\eta_c\) / \(J/\psi\,J/\psi\) mixing) → Bayesian \(E_n\) fits → Lüscher scattering observables.
+Fully-charm tetraquarks \(T_{cc\bar{c}\bar{c}}\) are exotic-hadron candidates at the LHC. This analysis chain targets \(\eta_c\eta_c\) and \(J/\psi\,J/\psi\) scattering and comparison with LHC data.
 
-**Results:** evidence for a **\(2^{++}\)** structure in \(J/\psi\,J/\psi\) near **6.6 GeV**, compatible with **\(X(6600)\)** ([Nature **648**, 58 (2025)](https://www.nature.com/articles/s41586-025-09278-2); [arXiv:2506.07944](https://arxiv.org/abs/2506.07944)); separate **\(0^{++}\)** and **\(2^{++}\)** amplitudes from one GEVP spectrum.
+**Key result:** a **\(2^{++}\)** candidate in \(J/\psi\,J/\psi\) near **6.6 GeV**, compatible with **\(X(6600)\)** ([Nature **648**, 58 (2025)](https://www.nature.com/articles/s41586-025-09278-2); [arXiv:2506.07944](https://arxiv.org/abs/2506.07944)), with separate **\(0^{++}\)** and **\(2^{++}\)** amplitudes from one GEVP spectrum.
 
-| Stage | Method | Output |
-|-------|--------|--------|
-| Mixing | GEVP | Physical FVE levels |
-| Spectroscopy | Multi-state cosh fit | \(E_n\), \(Z_n\) |
-| Scale | Meson dispersion | \(\xi\) |
-| Stability | \(t_{\min}\) scan + 4Q/2Q ratio | Window-robust \(E\) |
-| Scattering | Lüscher zeta | \(K(s)\), \(k\cot\delta_0\) |
-| Errors | Jackknife (401 samples) | Correlated uncertainties |
-
-**Scattering:** \(K(s)\) encodes S-wave interaction strength vs \(s=m_{\rm CM}^2\); \(k\cot\delta_0\) gives the phase shift \(\delta_0\). **Zeros of \(K(s)\) are S-matrix poles** — lattice resonance/bound-state predictions comparable to experimental enhancements such as \(X(6600)\).
+**Scattering observables:** \(K(s)\) vs \(s=m_{\rm CM}^2\) encodes S-wave interaction strength; \(k\cot\delta_0\) gives the phase shift \(\delta_0\). **Zeros of \(K(s)\) are S-matrix poles** — resonance or bound-state positions to compare with experimental enhancements such as \(X(6600)\) in double-\(J/\psi\) production.
 
 ---
 
@@ -59,14 +66,7 @@ Fully-charm tetraquarks \(T_{cc\bar{c}\bar{c}}\) are exotic-hadron candidates at
   <img src="result/Tcccc6600/E2_mom1_tmin_ratio_L16M420_EV120.png" alt="tmin E2 mom1" width="48%" />
 </p>
 
-### Scattering — \(K(s)\), \(k\cot\delta_0\) (\(L=12+16\), 401 jackknife samples)
-
-| Figure | Content |
-|--------|---------|
-| `K_s_scattering.png` | \(K(s)\) vs \(s\); **zero → S-matrix pole** (\(2^{++}\) / \(0^{++}\) from GEVP ordering) |
-| `kcot_scattering.png` | \(k\cot\delta_0\) vs \(k^2\); same pole content |
-
-Compared with the experimental \(X(6600)\) enhancement in double-\(J/\psi\) production.
+### Scattering — \(L=12+16\)
 
 <p align="center">
   <img src="result/Tcccc6600/K_s_scattering.png" alt="K(s)" width="48%" />
@@ -91,9 +91,7 @@ data/<system>/raw/*.npy  […, sample=401]
    result/<system>/*.{png,pdf}
 ```
 
-**Execution order:** (1) build `Config` → (2) resample if `run_resample=True` → (3) meson branch if `is_meson_analysis` → (4) tetraquark branch (GEVP, fits, t_min) → (5) scattering if `run_scattering`. Meson and tetraquark switches are independent; scattering can run from existing `resampled/` alone.
-
-**Technical notes:** `scipy.linalg.eig` + `numpy.einsum` GEVP; `lsqfit`/`gvar` Bayesian fits; `joblib` parallel zeta tables (\(10^5\) points, cached under `data/zeta/`); typed wrappers in `data/correlators.py`.
+**Execution order:** build `Config` → resample (optional) → meson branch → tetraquark branch (GEVP, fits, t_min) → scattering. Meson/tetraquark switches are independent.
 
 ---
 
