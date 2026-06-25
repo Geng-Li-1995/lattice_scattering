@@ -66,11 +66,11 @@ Fully-charm tetraquarks \(T_{cc\bar{c}\bar{c}}\) are exotic-hadron candidates at
 
 \(L=12\) (`L12M420_EV170`) unless noted; \(t_{\min}\) scan: \(L=16\).
 
-### GEVP
+### Generalized Eigenvalue Problem (GEVP)
 
 <p align="center">
-  <img src="result/Tcccc6600/GEVP_before_L12M420_EV170.png" alt="GEVP before" width="48%" />
-  <img src="result/Tcccc6600/GEVP_after_L12M420_EV170.png" alt="GEVP after" width="48%" />
+  <img src="result/Tcccc6600/GEVP_before_L12M420_EV170.png" alt="GEVP matrix before diagonalization" width="48%" />
+  <img src="result/Tcccc6600/GEVP_after_L12M420_EV170.png" alt="GEVP matrix after diagonalization" width="48%" />
 </p>
 
 ### Effective mass \(E_n\) (meson ← · tetraquark →)
