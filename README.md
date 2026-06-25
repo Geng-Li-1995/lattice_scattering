@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/Geng-Li-1995/lattice_scattering/actions/workflows/ci.yml/badge.svg)](https://github.com/Geng-Li-1995/lattice_scattering/actions/workflows/ci.yml)
 
-Config-driven Python pipeline for lattice tetraquark spectroscopy and finite-volume scattering on **6D correlators** (\(\sim10^7\) `float64`/file, **401** jackknife samples).
+End-to-end lattice QCD analysis for tetraquark spectroscopy and finite-volume scattering. The pipeline ingests Monte Carlo correlation functions up to **six dimensions**, runs generalized eigenvalue decomposition and Bayesian multi-state fits on **401** jackknife replicas, and extracts Lüscher scattering observables with correlated uncertainties carried through every stage.
 
 | | |
 |--|--|
@@ -14,16 +14,39 @@ Config-driven Python pipeline for lattice tetraquark spectroscopy and finite-vol
 
 ## Technical capabilities
 
-| Layer | Tools & design |
-|-------|----------------|
-| **Tensor I/O** | Typed `Correlator4D` / `TetraquarkCorrelator` wrappers; `ENSEMBLE_DB` config per system |
-| **Linear algebra** | `scipy.linalg.eig` GEVP; FVE matrix from 6D data; rotation via `numpy.einsum` |
-| **Fitting** | `lsqfit` + `gvar` Bayesian NL fit; 2-/3-state cosh, dispersion, \(t_{\min}\) scans, 4Q/2Q ratio |
-| **Resampling** | Leave-one-out jackknife / bootstrap (**401** samples); errors propagated as correlated `gvar` |
-| **Scattering** | Lüscher zeta on \(10^5\)-point grids; `joblib` parallel build; rest + moving frame; \(K(s)\), \(k\cot\delta_0\) |
-| **Caching** | `resampled/*.npy` and `data/zeta/*.npy` avoid repeated raw I/O and zeta summation |
-| **Plotting** | Modular `plot_*.py`; LaTeX labels; `plot_format` PNG/PDF |
-| **Quality** | `pytest` without lattice data; GitHub Actions Python 3.10 & 3.12 |
+### Scale
+
+| Quantity | Typical value (Tcccc6600) |
+|----------|---------------------------|
+| Raw tetraquark array rank | **6D** `[ch_src, mom_src, ch_snk, mom_snk, time, sample]` |
+| Elements per raw file | \(\sim10^6\)–\(10^7\) `float64` (~30–40 MiB / volume) |
+| Gauge ensemble (`sample` axis) | **401** jackknife replicas |
+| Time extent \(N_t\) | 96 (\(L=12\)) / 128 (\(L=16\)) |
+| Jackknife resampling cost | **401×** full GEVP + fit pass per volume when `run_resample=True` |
+| Lüscher zeta grid | \(10^5\) \(q^2\) points, built once in parallel (`joblib`) |
+
+Meson correlators are **4D**; tetraquark raw data is the dominant memory and tensor cost. After GEVP both branches are 4D for fitting.
+
+### Methods & implementation
+
+| Area | What the code does |
+|------|-------------------|
+| **I/O & types** | Shape-safe `Correlator4D`, `TetraquarkCorrelator`, `AnalysisCorrelators`; raw and resampled `.npy` loaders with ensemble tags (`L{Ns}M{M}_EV{EV}`) |
+| **Configuration** | `input/input_<System>.py` + `ENSEMBLE_DB`: channels, \(n^2\) lists, GEVP times, fit windows, priors — no hard-coded physics in analysis modules |
+| **GEVP** | Assemble full finite-volume matrix from 6D tetraquark data; solve \(C(t_1)\psi = \lambda C(t_0)\psi\) (`scipy.linalg.eig`); rotate correlators with `numpy.einsum`; extract diagonal GEVP levels |
+| **Spectroscopy fits** | Registry-based cosh models (`models.py`); `lsqfit` nonlinear fit with `gvar` priors; meson 2-state / tetraquark 3-state \(E_n\), \(Z_n\); dispersion \(E_n^2(n^2)\) for scale \(\xi\) |
+| **\(t_{\min}\) & ratio** | Symmetric window scan; 4Q/2Q ratio series and fits (`fit_tmin.py`); combined stability plots (`plot_tmin.py`) |
+| **Resampling** | Leave-one-out jackknife (`statistics/jackknife.py`) or bootstrap; write per-sample `En` and \(\xi\) to `resampled/` for downstream scattering |
+| **Scattering** | Rest-frame and moving-frame Lüscher zeta; per-jackknife-sample \(K(s)\) and \(k\cot\delta_0\); linear / quadratic phase-shift fits; cross-volume combination (`Ns_list`) |
+| **Plotting** | Shared style (`plot_set.py`); GEVP matrices, \(E_n\), \(t_{\min}\), scattering figures; LaTeX rendering; PNG or PDF via `plot_format` |
+| **Testing & CI** | Unit tests on synthetic arrays (no multi‑MiB lattice files); GitHub Actions on Python **3.10** and **3.12** |
+
+### Software design
+
+- **Modular stages:** `data/` → `analysis/` → `statistics/` → `plotting/` — each stage switch-controlled from `InputControl`.
+- **One entrypoint:** `main.py` orchestrates meson and tetraquark branches independently; scattering can rerun from cached `resampled/` without raw correlators.
+- **Extensible systems:** new tetraquark setup = one `input_<System>.py` + local `data/<System>/raw/` + `BuildConfig` line — analysis code unchanged.
+- **Reproducible artefacts:** zeta tables under `data/zeta/`; jackknife energies under `data/<system>/resampled/`; figures under `result/<system>/`.
 
 **Stack:** Python 3.10+ · NumPy · SciPy · gvar · lsqfit · joblib · Matplotlib · pytest
 
