@@ -111,8 +111,8 @@ Finite-volume matrix before / after generalized eigenvalue diagonalization. Phys
 Bayesian cosh fit to GEVP-projected correlators (tetraquark) and meson two-point functions. Physical content: ground and excited energies \(E_n\) (GeV) at each momentum \(n^2\).
 
 <p align="center">
-  <img src="result/Tcccc6600/En_tetraquark_L12M420_EV170.png" alt="Tetraquark effective mass" width="48%" />
   <img src="result/Tcccc6600/En_meson_L12M420_EV170.png" alt="Meson effective mass" width="48%" />
+  <img src="result/Tcccc6600/En_tetraquark_L12M420_EV170.png" alt="Tetraquark effective mass" width="48%" />
 </p>
 
 ### \(t_{\min}\) scan — fit-window stability
