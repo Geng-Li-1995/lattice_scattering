@@ -95,30 +95,42 @@ Extension from `plot_format` (`png` or `pdf`). Per-ensemble tag: `L{Ns}M{M}_EV{E
 
 ## Example results (Tcccc6600)
 
-GEVP and effective mass (\(L=12\)):
+Spectroscopy → fit stability → scattering. Figures below use \(L=12\) (`L12M420_EV170`) unless noted.
+
+### GEVP — operator mixing
+
+Finite-volume matrix before / after generalized eigenvalue diagonalization. Physical content: isolate physical tetraquark levels by suppressing cross-channel contamination between \(\eta_c\eta_c\) and \(J/\psi\,J/\psi\) operators.
 
 <p align="center">
-  <img src="result/Tcccc6600/GEVP_before_L12M420_EV170.png" width="48%" />
-  <img src="result/Tcccc6600/GEVP_after_L12M420_EV170.png" width="48%" />
+  <img src="result/Tcccc6600/GEVP_before_L12M420_EV170.png" alt="GEVP matrix before diagonalization" width="48%" />
+  <img src="result/Tcccc6600/GEVP_after_L12M420_EV170.png" alt="GEVP matrix after diagonalization" width="48%" />
 </p>
 
+### Effective mass \(E_n\) — discrete energy levels
+
+Bayesian cosh fit to GEVP-projected correlators (tetraquark) and meson two-point functions. Physical content: ground and excited energies \(E_n\) (GeV) at each momentum \(n^2\).
+
 <p align="center">
-  <img src="result/Tcccc6600/En_tetraquark_L12M420_EV170.png" width="48%" />
-  <img src="result/Tcccc6600/En_meson_L12M420_EV170.png" width="48%" />
+  <img src="result/Tcccc6600/En_tetraquark_L12M420_EV170.png" alt="Tetraquark effective mass" width="48%" />
+  <img src="result/Tcccc6600/En_meson_L12M420_EV170.png" alt="Meson effective mass" width="48%" />
 </p>
 
-Scattering (\(L=12+16\)):
+### \(t_{\min}\) scan — fit-window stability
+
+Scan of symmetric fit windows with 3-state cosh and 4Q/2Q ratio cross-check (\(J/\psi\,J/\psi\), \(L=16\), \(n^2=0,1\)). Physical content: robustness of the extracted level energy under varying \(t_{\min}\).
 
 <p align="center">
-  <img src="result/Tcccc6600/K_s_scattering.png" width="48%" />
-  <img src="result/Tcccc6600/kcot_scattering.png" width="48%" />
+  <img src="result/Tcccc6600/E2_mom0_tmin_ratio_L16M420_EV120.png" alt="t_min scan J/psi J/psi n2=0" width="48%" />
+  <img src="result/Tcccc6600/E2_mom1_tmin_ratio_L16M420_EV120.png" alt="t_min scan J/psi J/psi n2=1" width="48%" />
 </p>
 
-\(t_{\min}\) scan with 4Q/2Q ratio — \(J/\psi\,J/\psi\) at \(n^2=0,1\) (\(L=16\); 3-state ○, ratio ×, Combine band):
+### Scattering — \(K(s)\) and \(k\cot\delta_0\)
+
+Lüscher extraction from finite-volume energies on \(L=12+16\). Physical content: \(K(s)\) (scattering amplitude related observable) and \(k\cot\delta_0(s)\) (S-wave phase shift). **Zeros of \(K(s)\) (poles in the S-matrix) mark candidate resonance positions** — lattice predictions of new hadronic structures that can be compared with experimental states (e.g. the broad \(X(6600)\)-region enhancement in \(J/\psi\,J/\psi\)).
 
 <p align="center">
-  <img src="result/Tcccc6600/E2_mom0_tmin_ratio_L16M420_EV120.png" width="48%" />
-  <img src="result/Tcccc6600/E2_mom1_tmin_ratio_L16M420_EV120.png" width="48%" />
+  <img src="result/Tcccc6600/K_s_scattering.png" alt="Scattering K(s)" width="48%" />
+  <img src="result/Tcccc6600/kcot_scattering.png" alt="k cot delta_0" width="48%" />
 </p>
 
 ---
