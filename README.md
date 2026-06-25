@@ -123,13 +123,75 @@ data/<system>/raw/*.npy  […, sample=401]
 ## Code layout
 
 ```
-main.py
-input/       config.py, input_<System>.py  (ENSEMBLE_DB: channels, priors, fit windows)
-data/        correlators.py, io.py
-analysis/    gevp.py, fit_mass.py, fit_tmin.py, scattering.py, models.py
-statistics/  jackknife.py, bootstrap.py, resample.py
-plotting/    plot_set.py, plot_gevp.py, plot_mass.py, plot_tmin.py, plot_scattering.py
-tests/       docs/  (RUNNING.md, TESTING.md, DEPENDENCIES.md)
+lattice_scattering/
+├── main.py                         # entry: meson/tetraquark branches → scattering → figures
+├── README.md
+├── requirements.txt
+├── requirements-dev.txt
+├── pytest.ini
+├── .github/
+│   └── workflows/
+│       └── ci.yml                  # pytest on Python 3.10 & 3.12
+│
+├── input/
+│   ├── __init__.py
+│   ├── config.py                   # BuildConfig, Config, ENSEMBLE_DB, ensemble tags
+│   ├── input_Tcccc6600.py          # η_cη_c / J/ψJ/ψ, L=12+16
+│   ├── input_X3872.py              # πJ/ψ, ρη_c, DD*, D*D*
+│   └── input_Zc3900.py
+│
+├── data/
+│   ├── correlators.py              # Correlator4D, TetraquarkCorrelator, AnalysisCorrelators
+│   ├── io.py                       # read/write raw & resampled .npy
+│   ├── <System>/                   # Tcccc6600 | X3872 | Zc3900 (not in git)
+│   │   ├── raw/
+│   │   │   ├── correlation_meson_L{Ns}M{M}_EV{EV}.npy
+│   │   │   └── correlation_tetraquark_L{Ns}M{M}_EV{EV}.npy
+│   │   └── resampled/
+│   │       ├── resample_En_{meson,tetraquark}_*.npy
+│   │       └── resample_ksi_meson_*.npy
+│   └── zeta/                       # precomputed Lüscher ζ(q²); moving-frame refs per system
+│
+├── analysis/
+│   ├── __init__.py
+│   ├── gevp.py                     # process_GEVP, solve_GEVP, eigenvector sorting
+│   ├── fit_mass.py                 # RunFitting: effective mass, dispersion, Z_n
+│   ├── fit_tmin.py                 # t_min scan (cosh & ratio), ratio_scan_lookup
+│   ├── scattering.py               # Lüscher K(s), k cot δ, rest & moving frames
+│   └── models.py                   # MathModels, MODEL_REGISTRY (cosh, dispersion, …)
+│
+├── statistics/
+│   ├── __init__.py
+│   ├── jackknife.py                # Jackknife resampler (401 replicas)
+│   ├── bootstrap.py                # Bootstrap resampler (optional)
+│   └── resample.py                 # run_resample_statistics → data/<system>/resampled/
+│
+├── plotting/
+│   ├── __init__.py
+│   ├── plot_set.py                 # BasePlotter, matplotlib style, save_figure
+│   ├── plot_gevp.py                # GEVP before/after matrices & eigenvectors
+│   ├── plot_mass.py                # E_n, Z_n, dispersion; delegates t_min to TminPlotter
+│   ├── plot_tmin.py                # TminPlotter: cosh & ratio t_min stability
+│   └── plot_scattering.py          # K(s), k cot δ vs. (k/m_π)²
+│
+├── result/
+│   └── <System>/                   # output figures (.png / .pdf); tracked as examples
+│
+├── docs/
+│   ├── RUNNING.md                  # install, data layout, control flags
+│   ├── TESTING.md                  # pytest scope & fixtures
+│   └── DEPENDENCIES.md             # Python packages & optional LaTeX
+│
+└── tests/
+    ├── conftest.py                 # shared fixtures (synthetic correlators)
+    ├── test_jackknife.py
+    ├── test_io.py
+    ├── test_fit_mass.py
+    ├── test_fit_tmin.py
+    ├── test_scattering.py
+    ├── test_scattering_fit.py
+    ├── test_plot_set.py
+    └── test_plot_tmin.py
 ```
 
 New system: copy `input/input_<System>.py`, add `data/<System>/raw/`, change `BuildConfig(...)` in `main.py`.
