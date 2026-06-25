@@ -296,6 +296,16 @@ resample_type = "jackknife"
 
 ---
 
+## Author
+
+**Dr. Geng Li**
+
+Background in theoretical physics and computational high-energy physics (lattice QCD). Research interests include scientific computing, HPC, and machine learning on structured data.
+
+For collaboration, citation, or further information, please contact the author via the repository contact details.
+
+---
+
 ## License
 
 Not specified. Contact the maintainer before redistribution.
