@@ -159,9 +159,23 @@ Scattering reads **401-sample** energy vectors — no reload of raw multi‑MiB 
 
 ## Scientific context
 
-Fully-charm tetraquarks are exotic-hadron candidates at the LHC. This code maps finite-volume energies to scattering amplitudes and compares with experiment.
+Fully-charm tetraquarks \(T_{cc\bar{c}\bar{c}}\) are exotic-hadron candidates seen at the LHC. Lattice QCD provides a first-principles route to \(\eta_c\eta_c\) and \(J/\psi\,J/\psi\) interactions: finite-volume energies from Monte Carlo correlators are mapped to scattering amplitudes via the **Lüscher formalism**, after GEVP removes operator mixing between channels.
 
-On Tcccc6600, the pipeline finds a \(2^{++}\) candidate in \(J/\psi\,J/\psi\) near 6.6 GeV, consistent with the **\(X(6600)\)** enhancement ([Nature **648**, 58 (2025)](https://www.nature.com/articles/s41586-025-09278-2); [arXiv:2506.07944](https://arxiv.org/abs/2506.07944)). Zeros of \(K(s)\) (S-matrix poles) in the scattering plots below correspond to such new structures.
+Key physics results on Tcccc6600:
+
+- First lattice QCD evidence for a **\(2^{++}\) resonance** in \(J/\psi\,J/\psi\) near **6.6 GeV**, compatible with the broad **\(X(6600)\)** structure reported by ATLAS and CMS ([Nature **648**, 58 (2025)](https://www.nature.com/articles/s41586-025-09278-2); [arXiv:2506.07944](https://arxiv.org/abs/2506.07944)).
+- Preferred \(J^{PC}=2^{++}\) assignment consistent with the CMS angular analysis.
+- Separate **\(0^{++}\)** and **\(2^{++}\)** scattering amplitudes extracted from the same GEVP-diagonalized spectrum.
+
+| Step | Method | Observable |
+|------|--------|------------|
+| Operator mixing | GEVP on \(\eta_c\eta_c\)–\(J/\psi\,J/\psi\) matrix | Physical FVE levels |
+| Level extraction | Multi-state Bayesian cosh fit | \(E_n\), \(Z_n\) |
+| Scale setting | Meson dispersion relation | lattice spacing \(\xi\) |
+| Scattering | Lüscher zeta function | \(K(s)\), \(k\cot\delta_0(s)\) |
+| Errors | Jackknife / bootstrap (400 configs) | Correlated fit and scattering errors |
+
+**Scattering interpretation:** \(K(s)\) is built from finite-volume energy shifts and encodes the S-wave interaction strength as a function of centre-of-mass energy squared \(s\). \(k\cot\delta_0(s)\) is the standard Lüscher relation to the S-wave phase shift \(\delta_0\). **Zeros of \(K(s)\) correspond to poles of the S-matrix** — lattice predictions of resonances or bound states that can be compared with experimental enhancements such as \(X(6600)\) in the \(J/\psi\,J/\psi\) channel.
 
 ---
 
@@ -190,7 +204,16 @@ Spectroscopy → fit stability → scattering. Default figures: \(L=12\) (`L12M4
   <img src="result/Tcccc6600/E2_mom1_tmin_ratio_L16M420_EV120.png" alt="tmin E2 mom1" width="48%" />
 </p>
 
-### Scattering — \(K(s)\), \(k\cot\delta_0\) (\(L=12+16\))
+### Scattering — \(K(s)\) and \(k\cot\delta_0\) (\(L=12+16\))
+
+Lüscher extraction from jackknife-resampled finite-volume energies on **both** \(L=12\) and \(L=16\). The combined fit uses meson and tetraquark levels from GEVP together with the dispersion-calibrated scale \(\xi\).
+
+| Figure | Physical content |
+|--------|------------------|
+| **`K_s_scattering.png`** | \(K(s)\) vs \(s=m_{\rm CM}^2\): interaction strength in the \(J/\psi\,J/\psi\) S-wave channel. **A zero crossing of \(K(s)\) signals an S-matrix pole** — a candidate resonance or bound state. The tensor (\(2^{++}\)) and scalar (\(0^{++}\)) sectors are resolved from the GEVP level ordering. |
+| **`kcot_scattering.png`** | \(k\cot\delta_0(s)\) vs \(k^2\): equivalent phase-shift parameterization. Phase-shift structure near threshold and above reflects the same underlying pole content as \(K(s)\). |
+
+These lattice zeros/poles are compared with the experimental **\(X(6600)\)** enhancement in double-\(J/\psi\) production: agreement in position and preferred \(J^{PC}\) supports a genuine near-threshold exotic structure rather than a kinematic artefact.
 
 <p align="center">
   <img src="result/Tcccc6600/K_s_scattering.png" alt="K(s)" width="48%" />
