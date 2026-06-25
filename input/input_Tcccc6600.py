@@ -1,7 +1,5 @@
-# input_Tcccc6600.py
-
 from dataclasses import dataclass, field
-from typing import ClassVar, Dict, List
+from typing import ClassVar, Dict, List, Tuple
 
 from input.config import InputControlMixin, EnsembleKey, EnsembleEntry, ScatteringList
 
@@ -26,13 +24,21 @@ class InputControl(InputControlMixin):
     is_meson_analysis: bool = True
     is_tetraquark_analysis: bool = True
     is_gevp: bool = True
-    is_svd: bool = False
-    is_ratio: bool = False
+    is_ratio: bool = True
 
     # Pipeline stages
-    run_tmin: bool = False
+    run_tmin: bool = True
     run_resample: bool = False
     run_scattering: bool = True
+
+    # t_min scan + 4Q/2Q ratio
+    plot_tmin: bool = True
+    t_run_start: int = 10
+    t_run_stop: int | None = None
+    t_run_step: int = 1
+    t_run_end_offset: int = 1
+    ratio_ta: int = 2
+    ratio_scan_points: List[Tuple[int, ...]] = field(default_factory=list)
 
     # Plot outputs
     plot_meff: bool = True  # En / Zn plots (fit always runs)
@@ -76,6 +82,19 @@ class InputControl(InputControlMixin):
 
     scattering_list: ScatteringList = field(default_factory=list)
 
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        if self.is_ratio and not self.ratio_scan_points:
+            self.ratio_scan_points = [
+                (0, 1),
+                (0, 2),
+                (0, 4),
+                (1, 0),
+                (1, 1),
+                (1, 2),
+                (1, 3),
+                (1, 4),
+            ]
     @staticmethod
     def get_lattice_params(lattice_Ns: int) -> EnsembleKey:
         """Return (lattice_Ns, lattice_Nt, pion_mass, num_eigenvectors) for a given lattice_Ns."""
@@ -88,13 +107,7 @@ class InputControl(InputControlMixin):
                 raise ValueError(f"Unknown lattice_Ns={lattice_Ns}")
 
 
-# ======================================================
-# 1. ENSEMBLE_DB (UNCHANGED - FULL DATA PRESERVED)
-# ======================================================
 ENSEMBLE_DB: Dict[EnsembleKey, EnsembleEntry] = {
-    # ======================================================
-    # Ensemble: (12, 96, 420, 170)
-    # ======================================================
     (12, 96, 420, 170): {
         "at_invs": 7.219,
         "GEVP": (15, 25, 20),
@@ -167,9 +180,6 @@ ENSEMBLE_DB: Dict[EnsembleKey, EnsembleEntry] = {
             ],
         },
     },
-    # ======================================================
-    # Ensemble: (16, 128, 420, 120)
-    # ======================================================
     (16, 128, 420, 120): {
         "at_invs": 7.219,
         "GEVP": (30, 40, 35),

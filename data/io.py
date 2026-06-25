@@ -16,7 +16,11 @@ SCATTER_STAT_NAMES = ("Ks", "s", "k_sq", "kcot")
 
 def _corr_types(config: Config) -> list[str]:
     corr_types = []
-    if config.is_meson_analysis:
+    if config.is_meson_analysis or (
+        config.is_tetraquark_analysis
+        and config.run_tmin
+        and (config.is_ratio or config.ratio_scan_points)
+    ):
         corr_types.append("meson")
     if config.is_tetraquark_analysis:
         corr_types.append("tetraquark")

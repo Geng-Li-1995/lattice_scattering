@@ -1,7 +1,5 @@
-# input_Zc3900.py
-
 from dataclasses import dataclass, field
-from typing import ClassVar, Dict, List
+from typing import ClassVar, Dict, List, Tuple
 
 from input.config import InputControlMixin, EnsembleKey, EnsembleEntry, ScatteringList
 
@@ -26,13 +24,20 @@ class InputControl(InputControlMixin):
     is_meson_analysis: bool = False
     is_tetraquark_analysis: bool = True
     is_gevp: bool = True
-    is_svd: bool = False
     is_ratio: bool = False
 
     # Pipeline stages
     run_tmin: bool = False
     run_resample: bool = False
     run_scattering: bool = True
+
+    plot_tmin: bool = True
+    t_run_start: int = 10
+    t_run_stop: int | None = None
+    t_run_step: int = 1
+    t_run_end_offset: int = 1
+    ratio_ta: int = 2
+    ratio_scan_points: List[Tuple[int, ...]] = field(default_factory=list)
 
     # Plot outputs
     plot_meff: bool = True  # En / Zn plots (fit always runs)
@@ -88,13 +93,7 @@ class InputControl(InputControlMixin):
                 raise ValueError(f"Unknown lattice_Ns={lattice_Ns}")
 
 
-# ======================================================
-# 1. ENSEMBLE_DB (UNCHANGED - FULL DATA PRESERVED)
-# ======================================================
 ENSEMBLE_DB: Dict[EnsembleKey, EnsembleEntry] = {
-    # ======================================================
-    # Ensemble: (16, 128, 420, 70)
-    # ======================================================
     (16, 128, 420, 70): {
         "at_invs": 7.219,
         "GEVP": (20, 30, 25),

@@ -9,9 +9,6 @@ import numpy as np
 from analysis.models import MODEL_REGISTRY
 from data.correlators import AnalysisCorrelators, Correlator4D
 
-# ---------------------------------------------------------------------------
-# Shared types and path tags
-# ---------------------------------------------------------------------------
 EnsembleKey: TypeAlias = Tuple[int, int, int, int]  # (Ns, Nt, pion_mass, num_eigenvectors)
 ScatteringList: TypeAlias = List[EnsembleKey]
 ResampleDataDict: TypeAlias = Dict[str, Dict[EnsembleKey, np.ndarray]]
@@ -20,6 +17,7 @@ ModelFn: TypeAlias = Callable[..., Any]
 PriorFn: TypeAlias = Callable[..., Dict[str, Any]]
 FitResultList: TypeAlias = List[Dict[str, Any]]
 EnsembleEntry: TypeAlias = Dict[str, Any]
+RatioScanPoint: TypeAlias = Tuple[int, ...]  # (tetra_ch, tetra_mom) or (tetra_ch, tetra_mom, meson_ch, meson_mom)
 
 
 def ensemble_tag(ensemble_key: EnsembleKey) -> str:
@@ -31,9 +29,6 @@ def moving_frame_d_tag(d_vec: tuple[int, int, int]) -> str:
     return "d" + "".join(str(int(component)) for component in d_vec)
 
 
-# ---------------------------------------------------------------------------
-# InputControl base (subclassed in input_<project>.py)
-# ---------------------------------------------------------------------------
 class InputControlMixin:
     """Common post-init and helpers; subclasses supply field defaults and ``get_lattice_params``."""
 
@@ -73,9 +68,6 @@ class InputControlMixin:
         raise ValueError("Neither meson nor tetraquark analysis is selected.")
 
 
-# ---------------------------------------------------------------------------
-# Runtime Config used in analysis
-# ---------------------------------------------------------------------------
 @dataclass
 class Config:
     input_name: str
@@ -100,7 +92,6 @@ class Config:
     is_meson_analysis: bool
     is_tetraquark_analysis: bool
     is_gevp: bool
-    is_svd: bool
     is_ratio: bool
 
     run_tmin: bool
@@ -134,10 +125,15 @@ class Config:
     s_plot_range: Tuple[float, float]
     moving_frame_d_vec: Tuple[int, int, int]
 
+    t_run_start: int
+    t_run_stop: int | None
+    t_run_step: int
+    t_run_end_offset: int
+    ratio_ta: int
+    ratio_scan_points: List[RatioScanPoint]
+    plot_tmin: bool
 
-# ---------------------------------------------------------------------------
-# BuildConfig: load input_<project>.py and materialize Config
-# ---------------------------------------------------------------------------
+
 @dataclass
 class BuildConfig:
     input_name: str
@@ -205,7 +201,6 @@ class BuildConfig:
             is_meson_analysis=analysis_type == "meson",
             is_tetraquark_analysis=analysis_type == "tetraquark",
             is_gevp=ctrl.is_gevp,
-            is_svd=ctrl.is_svd,
             is_ratio=ctrl.is_ratio,
             run_tmin=ctrl.run_tmin,
             run_resample=ctrl.run_resample,
@@ -234,12 +229,16 @@ class BuildConfig:
             k_sq_plot_range=ctrl.k_sq_plot_range,
             s_plot_range=ctrl.s_plot_range,
             moving_frame_d_vec=ctrl.moving_frame_d_vec,
+            t_run_start=ctrl.t_run_start,
+            t_run_stop=ctrl.t_run_stop,
+            t_run_step=ctrl.t_run_step,
+            t_run_end_offset=ctrl.t_run_end_offset,
+            ratio_ta=ctrl.ratio_ta,
+            ratio_scan_points=list(ctrl.ratio_scan_points),
+            plot_tmin=ctrl.plot_tmin,
         )
 
 
-# ---------------------------------------------------------------------------
-# Correlator / fit-model selection for the active analysis mode
-# ---------------------------------------------------------------------------
 class SelectorType:
     """Return the active Correlator4D and cosh fit model for the current analysis mode."""
 
@@ -254,9 +253,6 @@ class SelectorType:
         )
 
     def get_model(self) -> tuple[ModelFn, PriorFn]:
-        if self.config.is_ratio:
-            return MODEL_REGISTRY["ratio"]["fn"], MODEL_REGISTRY["ratio"]["prior"]
-
         key = {2: "two_states", 3: "three_states"}.get(self.config.n_state)
         if key is None:
             raise ValueError(f"Unsupported n_state={self.config.n_state}")

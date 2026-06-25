@@ -66,7 +66,7 @@ The pipeline expects data under `data/<system>/`. The repository includes input 
 
 The directory name must match the string passed to `BuildConfig("<System>")`; for example `BuildConfig("Zc3900")` reads from `data/Zc3900/`.
 
-For the showcase system `Tcccc6600`:
+For Tcccc6600:
 
 ```
 data/Tcccc6600/
@@ -134,6 +134,9 @@ class InputControl:
     is_meson_analysis: bool = False   # meson Zn / dispersion runs
     is_tetraquark_analysis: bool = True  # GEVP + tetraquark raw-data analysis
     is_gevp: bool = True              # GEVP diagonalization
+    run_tmin: bool = False            # scan t_min with symmetric t_max
+    is_ratio: bool = False            # 4Q/2Q ratio on ratio_scan_points channels
+    plot_tmin: bool = True            # save t_min scan figures
     run_scattering: bool = True       # scattering Ks / kcot analysis
     run_resample: bool = False        # generate resampled files from raw data
     is_moving_frame: bool = False               # include moving-frame tetraquark energies
@@ -160,10 +163,24 @@ class InputControl:
     k_sq_plot_range: tuple[float, float] = (-0.25, 1.75)
     s_plot_range: tuple[float, float] = (37, 45)
     moving_frame_d_vec: tuple[int, int, int] = (0, 0, 1)
+
+    # t_min scan (analysis/fit_tmin.py, plotting/plot_tmin.py)
+    t_run_start: int = 10
+    t_run_stop: int | None = None     # default: Nt/2 - t_run_end_offset
+    t_run_step: int = 1
+    t_run_end_offset: int = 1
+    ratio_ta: int = 2                 # ta in R(t) = (C4(t)-C4(t+ta)) / (C2(t)^2 - C2(t+ta)^2)
+    ratio_scan_points: list = []      # (tetra_ch, n^2) or 4-tuple override; auto-filled for Tcccc6600
 ```
 
 | Switch | Effect |
 |--------|--------|
+| `run_tmin` | Scan fit windows in `t_min` (symmetric `t_max = Nt - t_min`) and plot energy vs `t_min` |
+| `plot_tmin` | Write `E{n}_mom{n2}_tmin_*` figures under `result/<system>/` |
+| `is_ratio` | On channels listed in `ratio_scan_points`, overlay 3-state cosh and 4Q/2Q ratio (requires meson raw data) |
+| `ratio_scan_points` | Which `(channel, n^2)` tetraquark GEVP diagonals get ratio plots; meson uses same indices for Tcccc unless overridden |
+| `t_run_start` / `t_run_stop` / `t_run_step` | Grid of scanned `t_min` values |
+| `ratio_ta` | Time shift `ta` in the ratio correlator construction |
 | `lattice_Ns` | Selects which raw correlator set to load and fit |
 | `is_tetraquark_analysis` | Uses tetraquark channels and 3-state cosh model; enables GEVP and scattering |
 | `is_meson_analysis` | Uses meson channels and 2-state cosh model; enables `Zn` and dispersion plots |
@@ -241,9 +258,33 @@ Default execution order:
 2. If `run_resample=True`, generate resampled files for each enabled analysis branch
 3. If `run_resample=False` and `is_meson_analysis=True`, load meson raw correlators, fit, and plot meson observables
 4. If `run_resample=False` and `is_tetraquark_analysis=True`, load tetraquark raw correlators, run GEVP/fits, and plot tetraquark observables
-5. If `run_scattering=True`, load existing resampled `.npy` files and run scattering analysis → `K_s_scattering.{png|pdf}`, `kcot_scattering.{png|pdf}`
+5. If `run_tmin=True` and `plot_tmin=True`, scan `t_min` and save `E{n}_mom{n2}_tmin_*` figures (ratio channels need meson correlators loaded)
+6. If `run_scattering=True`, load existing resampled `.npy` files and run scattering analysis → `K_s_scattering.{png|pdf}`, `kcot_scattering.{png|pdf}`
 
 To run scattering only from resampled files, set `is_meson_analysis=False`, `is_tetraquark_analysis=False`, and `run_scattering=True`.
+
+### \(t_{\min}\) scan and ratio plots
+
+Enable in `input/input_Tcccc6600.py` (defaults shown):
+
+```python
+run_tmin: bool = True
+plot_tmin: bool = True
+is_ratio: bool = True
+is_meson_analysis: bool = True      # meson branch loads C2 for ratio denominator
+is_tetraquark_analysis: bool = True
+```
+
+`main.py` runs the meson branch first (fits only; t_min plotting skipped on meson), then the tetraquark branch with meson correlators available for ratio. Output examples on \(L=16\):
+
+```
+result/Tcccc6600/
+├── E2_mom0_tmin_ratio_L16M420_EV120.png   # J/psi J/psi, n^2=0 + J/psi C2
+├── E2_mom1_tmin_ratio_L16M420_EV120.png   # J/psi J/psi, n^2=1 + J/psi C2
+└── ...
+```
+
+`E2` = second tetraquark channel (\(J/\psi\,J/\psi\)); `mom{k}` = \(n^2=k\). Y-axis is energy in GeV; vertical range is ±10× the Combine reference error bar.
 
 ### Headless / server (no display)
 
@@ -268,6 +309,7 @@ result/Tcccc6600/
 ├── GEVP_after_L12M420_EV170.png
 ├── GEVP_eigenvector_L12M420_EV170.png
 ├── En_tetraquark_L12M420_EV170.png
+├── E2_mom0_tmin_ratio_L16M420_EV120.png   # when run_tmin + is_ratio (example)
 ├── K_s_scattering.png
 └── kcot_scattering.png
 ```

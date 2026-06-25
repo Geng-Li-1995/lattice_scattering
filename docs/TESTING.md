@@ -1,6 +1,6 @@
-# Testing Guide
+# Testing
 
-How the test suite validates the pipeline **without** lattice `.npy` data.
+How to run tests without lattice `.npy` data.
 
 ---
 
@@ -17,16 +17,9 @@ CI runs on every push/PR to `main` (Python 3.10 & 3.12). See [`.github/workflows
 
 ---
 
-## Design principle
+## Principle
 
-| Full pipeline (`main.py`) | Unit tests (`pytest`) |
-|---------------------------|------------------------|
-| Reads multi‑MiB `data/**/raw/*.npy` | Uses **synthetic NumPy arrays** |
-| GEVP + `lsqfit` on real correlators | Tests **single functions** in isolation |
-| Jackknife over 400 configurations | Jackknife on 4–401 fake numbers |
-| Writes `result/` figures | Plot helpers tested without saving figures |
-
-Tests check **logic** (shapes, keys, formulas, file round-trips), not physics agreement with published numbers.
+Tests use synthetic arrays and config-only checks. They verify shapes, formulas, and file I/O — not agreement with published physics numbers.
 
 ---
 
@@ -39,6 +32,8 @@ Tests check **logic** (shapes, keys, formulas, file round-trips), not physics ag
 | `tests/test_scattering.py` | `analysis/scattering.py` | Random energies + constant zeta table |
 | `tests/test_scattering_fit.py` | `analysis/scattering.py` (`fit_mom_indices`) | `BuildConfig` + `dataclasses.replace` (no `.npy`) |
 | `tests/test_fit_mass.py` | `analysis/fit_mass.py` helpers | Lookup dicts; dispersion slope → ξ |
+| `tests/test_fit_tmin.py` | `analysis/fit_tmin.py` | Ratio series; `ratio_scan_lookup`; E2_mom0/mom1 mapping |
+| `tests/test_plot_tmin.py` | `plotting/plot_tmin.py` | GeV y-axis limits (±10× reference error) |
 | `tests/test_plot_set.py` | `plotting/plot_set.py` | Pure axis-limit math |
 
 Shared fixture in `tests/conftest.py`:
@@ -73,6 +68,14 @@ assert indices[16] == [1, 3, 5]
 
 Only Python config in `input/input_X3872.py` is loaded — no correlator files.
 
+### Ratio channel mapping (`test_fit_tmin.py`)
+
+```python
+lookup = ratio_scan_lookup(tetra_config)
+assert lookup[(1, 0)].meson_ch == 1 and lookup[(1, 0)].meson_mom == 0  # E2_mom0 → J/psi
+assert lookup[(1, 1)].meson_ch == 1 and lookup[(1, 1)].meson_mom == 1
+```
+
 ### Temporary file I/O (`test_io.py`)
 
 ```python
@@ -90,7 +93,7 @@ def test_mf_scatter_file_roundtrip(tmp_path: Path):
 
 - End-to-end `main.py` workflow
 - GEVP diagonalization on real tetraquark tensors
-- Full `lsqfit` effective-mass fits
+- Full `lsqfit` effective-mass fits on real correlators (t_min scan fits)
 - Plot pixel comparison against reference figures
 - Moving-frame zeta table generation (`joblib` parallel sum)
 

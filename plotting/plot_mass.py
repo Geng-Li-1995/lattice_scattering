@@ -1,12 +1,13 @@
-import numpy as np
 import gvar as gv
 import lsqfit as lsf
 import matplotlib.pyplot as plt
+import numpy as np
 
 from analysis.models import MathModels
 from analysis.fit_mass import disp_fit_lookup, en_fit_lookup
 from data.correlators import AnalysisCorrelators
 from input.config import Config, SelectorType, FitResultList
+from plotting.plot_tmin import TminPlotter
 from plotting.plot_set import (
     BasePlotter,
     COLORS,
@@ -182,3 +183,10 @@ class MassPlotter(BasePlotter):
         plt.ylim(*axis_limits_from_values(all_vals))
         add_legend("upper left")
         self._save_mass("Dispersion")
+
+    def plot_tmin_workflow(
+        self,
+        corr: AnalysisCorrelators,
+        meson_config: Config | None = None,
+    ) -> None:
+        TminPlotter(self.config).run(corr, meson_config)
