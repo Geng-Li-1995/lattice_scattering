@@ -12,6 +12,36 @@ Raw and resampled `.npy` data are not in git; place them under `data/<system>/` 
 
 ---
 
+## Scientific context
+
+Fully-charm tetraquarks \(T_{cc\bar{c}\bar{c}}\) are among the exotic-hadron candidates seen at the LHC. This pipeline extracts \(\eta_c\eta_c\) and \(J/\psi\,J/\psi\) finite-volume energies from Monte Carlo correlators, then maps them to scattering observables via the Lüscher formalism.
+
+Main physics results on Tcccc6600 include evidence for a \(2^{++}\) structure in \(J/\psi\,J/\psi\) scattering near 6.6 GeV, compatible with the broad **\(X(6600)\)** enhancement reported by ATLAS and CMS ([Nature **648**, 58 (2025)](https://www.nature.com/articles/s41586-025-09278-2); [arXiv:2506.07944](https://arxiv.org/abs/2506.07944)).
+
+| Step | Method |
+|------|--------|
+| Operator mixing | GEVP on the \(\eta_c\eta_c\)–\(J/\psi\,J/\psi\) matrix |
+| Level extraction | Multi-state Bayesian cosh fit → \(E_n\), \(Z_n\) |
+| Scale setting | Meson dispersion relation → \(\xi\) |
+| Scattering | Lüscher zeta function → \(K(s)\), \(k\cot\delta_0\) |
+| Errors | Jackknife / bootstrap over 400 gauge configs |
+
+---
+
+## Highlights
+
+| Area | Features |
+|------|----------|
+| **Large-scale numerics** | 6D tetraquark correlators (\(\sim10^6\)–\(10^7\) elements per file); GEVP on full FVE matrices; cached \(10^5\)-point zeta tables |
+| **Statistical analysis** | Bayesian fits (`lsqfit` + `gvar`); leave-one-out jackknife with correlated errors end-to-end |
+| **HPC-oriented workflow** | 400× jackknife passes over GEVP + fits; `joblib` parallel zeta generation; resampled `.npy` caches to avoid repeated raw I/O |
+| **Software** | Config-driven `ENSEMBLE_DB`; modular I/O → analysis → statistics → plotting; one entrypoint for multiple tetraquark systems |
+| **Quality** | `pytest` regression suite; GitHub Actions (Python 3.10 & 3.12); tests run without multi-GB lattice data |
+
+**Stack:** Python 3.10+ · NumPy · SciPy · gvar · lsqfit · joblib · Matplotlib (LaTeX) · pytest · GitHub Actions
+
+---
+
 ## Systems
 
 | System | Input | Ensembles | Channels |
@@ -21,6 +51,62 @@ Raw and resampled `.npy` data are not in git; place them under `data/<system>/` 
 | `Zc3900` | `input/input_Zc3900.py` | \(L=16\), EV 70 | same as X3872 |
 
 Array shapes: meson `[channel, mom, time, sample]`; tetraquark raw `[ch_src, mom_src, ch_snk, mom_snk, time, sample]`; after GEVP tetraquark is 4D like meson. Here `mom` is \(n^2\) used as an array index.
+
+---
+
+## Data scale
+
+All on-disk arrays use **`float64`**. The `sample` axis indexes independent gauge configurations (typically **400**). Tetraquark raw data is **6D** — the dominant storage and GEVP cost.
+
+### Array conventions
+
+| Array | Axes (in order) |
+|-------|-----------------|
+| Meson correlator | `[channel, momentum, time, sample]` |
+| Tetraquark correlator (raw) | `[ch_src, mom_src, ch_snk, mom_snk, time, sample]` |
+| Tetraquark (after GEVP) | `[channel, momentum, time, sample]` |
+| Resampled energy | `[channel, momentum, sample]` |
+| Resampled \(\xi\) (meson) | `[channel, sample]` |
+
+### Raw correlators — Tcccc6600 (showcase)
+
+| File | Shape | Elements | Size (approx.) |
+|------|-------|----------|----------------|
+| `correlation_meson_L12M420_EV170.npy` | `[2, 10, 96, 400]` | 768 000 | 5.9 MiB |
+| `correlation_tetraquark_L12M420_EV170.npy` | `[2, 5, 2, 5, 96, 400]` | 3.84 M | 29 MiB |
+| `correlation_meson_L16M420_EV120.npy` | `[2, 10, 128, 400]` | 1.02 M | 7.8 MiB |
+| `correlation_tetraquark_L16M420_EV120.npy` | `[2, 5, 2, 5, 128, 400]` | 5.12 M | 39 MiB |
+
+Both volumes combined: **~82 MiB** raw input per system.
+
+### Raw correlators — X3872 / Zc3900 (\(L=16\), example)
+
+| File | Shape (example) | Elements (@ 401 configs) | Size (approx.) |
+|------|-----------------|--------------------------|----------------|
+| `correlation_meson_L16M420_EV70.npy` | `[6, 5, 128, N_cfg]` | 1.54 M | 12 MiB |
+| `correlation_tetraquark_L16M420_EV70.npy` | `[4, 2, 4, 2, 128, N_cfg]` | 3.29 M | 25 MiB |
+
+### Resampled outputs (`data/<system>/resampled/`)
+
+Produced by `run_resample_statistics()`; consumed by scattering without reloading raw correlators.
+
+| File pattern | Shape (X3872 example) | Content |
+|--------------|----------------------|---------|
+| `resample_En_meson_*.npy` | `[6, 5, 401]` | Jackknife meson energies |
+| `resample_En_tetraquark_*.npy` | `[1, 3, 401]` | Tetraquark levels for scattering |
+| `resample_ksi_meson_*.npy` | `[6, 401]` | Dispersion scale \(\xi\) |
+
+Each jackknife index carries correlated energies across channels — scattering recomputes \(k\cot\delta_0\) from these **401-sample** vectors without touching the raw multi‑MiB files.
+
+### Compute load (jackknife, 400 configs)
+
+| Stage | One full run | Jackknife total |
+|-------|--------------|-----------------|
+| GEVP + effective-mass fits | 1× on raw correlators | **400×** leave-one-out |
+| Dispersion fits (meson) | 1× per channel | **400×** |
+| Scattering | 1× on `resampled/` | 1× |
+
+`run_resample=True` is the main bottleneck; scattering and plotting are lightweight once `resampled/` and zeta caches exist.
 
 ---
 
@@ -157,9 +243,13 @@ Meson and tetraquark branches are independent. Both off → skip raw analysis; s
 
 ---
 
-## Tests
+## Tests & CI
 
-GitHub Actions runs `pytest` on Python 3.10 and 3.12 without lattice data. See [docs/TESTING.md](docs/TESTING.md).
+GitHub Actions runs `pytest` on Python 3.10 and 3.12 without lattice data ([workflow](.github/workflows/ci.yml)). Tests cover jackknife statistics, I/O, scattering algebra, fit lookups, and t_min channel mapping — see [docs/TESTING.md](docs/TESTING.md).
+
+```bash
+MPLBACKEND=Agg pytest
+```
 
 ---
 
