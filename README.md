@@ -80,14 +80,16 @@ Fully-charm tetraquarks \(T_{cc\bar{c}\bar{c}}\) are exotic-hadron candidates at
   <img src="result/Tcccc6600/En_tetraquark_L12M420_EV170.png" alt="Tetraquark En" width="48%" />
 </p>
 
-### \(t_{\min}\) scan — \(J/\psi\,J/\psi\), \(n^2=0,1\)
+### \(t_{\min}\) scan — `E2_mom0` & `E2_mom1` (\(J/\psi\,J/\psi\), \(L=16\))
 
-3-state ○, ratio ×, Combine band (GeV, ±10× jackknife error).
+3-state ○, ratio ×, Combine band (GeV, ±10× jackknife error). Left: \(n^2=0\); right: \(n^2=1\).
 
 <p align="center">
-  <img src="result/Tcccc6600/E2_mom0_tmin_ratio_L16M420_EV120.png" alt="tmin E2 mom0" width="48%" />
-  <img src="result/Tcccc6600/E2_mom1_tmin_ratio_L16M420_EV120.png" alt="tmin E2 mom1" width="48%" />
+  <img src="result/Tcccc6600/E2_mom0_tmin_ratio_L16M420_EV120.png" alt="E2_mom0 tmin ratio" width="48%" />
+  <img src="result/Tcccc6600/E2_mom1_tmin_ratio_L16M420_EV120.png" alt="E2_mom1 tmin ratio" width="48%" />
 </p>
+
+<p align="center"><sub><code>E2_mom0_tmin_ratio_L16M420_EV120</code> · <code>E2_mom1_tmin_ratio_L16M420_EV120</code></sub></p>
 
 ### Scattering — \(L=12+16\)
 
