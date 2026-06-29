@@ -2,53 +2,244 @@
 
 [![CI](https://github.com/Geng-Li-1995/lattice_scattering/actions/workflows/ci.yml/badge.svg)](https://github.com/Geng-Li-1995/lattice_scattering/actions/workflows/ci.yml)
 
-End-to-end lattice QCD analysis for tetraquark spectroscopy and finite-volume scattering. The pipeline ingests Monte Carlo correlation functions up to **six dimensions**, runs generalized eigenvalue decomposition and Bayesian multi-state fits on **401** jackknife replicas, and extracts Lüscher scattering observables with correlated uncertainties carried through every stage.
+Production-grade lattice QCD pipeline for **tetraquark spectroscopy** and **finite-volume scattering**: six-dimensional correlators → GEVP → multi-state Bayesian fits → ratio methods → Lüscher phase shifts, with **correlated jackknife uncertainties** propagated end-to-end.
 
 | | |
 |--|--|
-| **Systems** | `Tcccc6600`, `X3872`, `Zc3900` — `BuildConfig("<System>")` in `main.py` |
-| **Reference** | Tcccc6600: \(\eta_c\eta_c\) / \(J/\psi\,J/\psi\), \(L=12,16\), \(a_t^{-1}=7.219\) GeV |
-| **Data** | Raw / resampled `.npy` local only (`data/<system>/`); not in git |
+| **Systems** | `Tcccc6600` · `X3872` · `Zc3900` — one `input_<System>.py` per physics setup |
+| **Reference** | Fully-charm \(T_{cc\bar c\bar c}\): \(\eta_c\eta_c\) / \(J/\psi\,J/\psi\), \(L=12{+}16\), \(a_t^{-1}=7.219\) GeV |
+| **Scale** | 6D raw tensors · **401** jackknife replicas · \(10^5\)-point Lüscher \(\zeta\) tables |
+| **Data** | Local `data/<system>/` only (not in git) · figures in `result/<system>/` |
 
 ---
 
-## Technical capabilities
+## Contents
 
-### Scale
+1. [Technical overview](#technical-overview)
+2. [Architecture](#architecture)
+3. [Analysis capabilities](#analysis-capabilities)
+4. [Software engineering](#software-engineering)
+5. [Physics (Tcccc6600)](#physics-tcccc6600)
+6. [Example results](#example-results)
+7. [Data contract](#data-contract)
+8. [Quick start](#quick-start)
+9. [Configuration](#configuration)
+10. [Tests & CI](#tests--ci)
+11. [Publications](#publications)
 
-| Quantity | Typical value (Tcccc6600) |
-|----------|---------------------------|
-| Raw tetraquark array rank | **6D** `[chan_src, mom_src, chan_snk, mom_snk, time, sample]` |
-| Elements per raw file | \(\sim10^6\)–\(10^7\) `float64` (~30–40 MiB / volume) |
-| Gauge ensemble (`sample` axis) | **401** jackknife replicas |
+---
+
+## Technical overview
+
+This repository implements a **modular, switch-driven** analysis chain used in lattice studies of exotic hadrons. Design goals:
+
+- **Correct tensor geometry** — typed 4D/6D correlators; no silent axis swaps between meson and tetraquark branches.
+- **Unified uncertainty** — `gvar` + jackknife/bootstrap through fits, ratio series, and scattering observables.
+- **Label-driven configuration** — channel indices resolved from LaTeX names in `ENSEMBLE_DB`, not hard-coded in analysis code.
+- **Decoupled stages** — spectroscopy and scattering can run independently; scattering replays from cached `resampled/` energies.
+
+### Computational scale (Tcccc6600)
+
+| Quantity | Value |
+|----------|-------|
+| Raw tetraquark rank | **6D** `[chan_src, mom_src, chan_snk, mom_snk, time, sample]` |
+| Raw file size | ~30–40 MiB / volume (\(\sim10^6\)–\(10^7\) `float64`) |
+| Jackknife replicas | **401** on the `sample` axis |
 | Time extent \(N_t\) | 96 (\(L=12\)) / 128 (\(L=16\)) |
-| Jackknife resampling cost | **401×** full GEVP + fit pass per volume when `run_resample_analysis=True` |
-| Lüscher zeta grid | \(10^5\) \(q^2\) points, built once in parallel (`joblib`) |
+| Resampling cost | **401×** GEVP + fit per volume when `run_resample_analysis=True` |
+| Lüscher grid | \(10^5\) \(q^2\) points, built once (`joblib` parallel) |
 
-Meson correlators are **4D**; tetraquark raw data is the dominant memory and tensor cost. After GEVP both branches are 4D for fitting.
-
-### Methods & implementation
-
-| Area | What the code does |
-|------|-------------------|
-| **I/O & types** | Shape-safe `Correlator4D`, `TetraquarkCorrelator`, `AnalysisCorrelators`; raw and resampled `.npy` loaders with ensemble tags (`L{Ns}M{M}_EV{EV}`) |
-| **Configuration** | `input/input_<System>.py` + `ENSEMBLE_DB`: chans, \(n^2\) lists, GEVP times, fit windows, priors — channel labels matched by field (`scattering_channel` → meson/tetra indices) |
-| **GEVP** | Assemble full finite-volume matrix from 6D tetraquark data; solve \(C(t_1)\psi = \lambda C(t_0)\psi\) (`scipy.linalg.eig`); rotate correlators with `numpy.einsum`; extract diagonal GEVP levels |
-| **Spectroscopy fits** | Registry-based cosh models (`models.py`); `lsqfit` nonlinear fit with `gvar` priors; meson 2-state / tetraquark 3-state \(E_n\), \(Z_n\); dispersion \(E_n^2(n^2)\) for scale \(\xi\) |
-| **\(t_{\min}\) & ratio** | Symmetric window scan; 4Q/2Q ratio series and fits (`fit_tmin.py`); dedicated ratio figure (`plot_ratio.py`); combined stability plots (`plot_tmin.py`) |
-| **Resampling** | Leave-one-out jackknife (`statistics/jackknife.py`) or bootstrap; write per-sample `En` and \(\xi\) to `resampled/` for downstream scattering |
-| **Scattering** | Rest-frame and moving-frame Lüscher zeta; per-jackknife-sample \(K(s)\) and \(k\cot\delta_0\); linear / quadratic phase-shift fits; multi-\(L\) combination via `scattering_Ns_mom` keys |
-| **Plotting** | Shared style (`plot_set.py`); GEVP matrices, \(E_n\), ratio, \(t_{\min}\), scattering figures; `is_plot_title` / `is_plot_show`; LaTeX rendering; PNG or PDF via `plot_format` |
-| **Testing & CI** | Unit tests on synthetic arrays (no multi‑MiB lattice files); GitHub Actions on Python **3.10** and **3.12** |
-
-### Software design
-
-- **Modular stages:** `data/` → `analysis/` → `statistics/` → `plotting/` — each stage switch-controlled from `InputControl`.
-- **One entrypoint:** `main.py` orchestrates meson and tetraquark branches independently; scattering can rerun from cached `resampled/` without raw correlators.
-- **Extensible systems:** new tetraquark setup = one `input_<System>.py` + local `data/<System>/raw/` + `BuildConfig` line — analysis code unchanged.
-- **Reproducible artefacts:** zeta tables under `data/zeta/`; jackknife energies under `data/<system>/resampled/`; figures under `result/<system>/`.
+Meson correlators are **4D**; tetraquark raw data dominates memory. After GEVP both branches collapse to 4D for fitting.
 
 **Stack:** Python 3.10+ · NumPy · SciPy · gvar · lsqfit · joblib · Matplotlib · pytest
+
+---
+
+## Architecture
+
+### Layered pipeline
+
+```mermaid
+flowchart TB
+    subgraph input["Configuration"]
+        IC["input/input_*.py<br/>InputControl switches"]
+        DB["ENSEMBLE_DB<br/>channels · priors · t_min"]
+        BC["BuildConfig → Config"]
+    end
+
+    subgraph data["data/"]
+        RAW["raw/*.npy<br/>4D meson · 6D tetraquark"]
+        IO["io.py · correlators.py"]
+        RES["resampled/*.npy<br/>En, ξ per jackknife"]
+    end
+
+    subgraph analysis["analysis/"]
+        GEVP["gevp.py<br/>FVE matrix · GEVP · rotation"]
+        MASS["fit_mass.py<br/>2/3-state cosh · Z_n · dispersion"]
+        TMIN["fit_tmin.py<br/>t_min scan · ratio fits"]
+        SCAT["scattering.py<br/>Lüscher K(s) · k cot δ₀"]
+        MOD["models.py<br/>MODEL_REGISTRY"]
+    end
+
+    subgraph stats["statistics/"]
+        JK["jackknife / bootstrap"]
+        RS["resample.py"]
+    end
+
+    subgraph plot["plotting/"]
+        PS["plot_set.py"]
+        OUT["result/*.png|pdf"]
+    end
+
+    IC --> BC
+    DB --> BC
+    BC --> IO
+    RAW --> IO
+    IO --> GEVP
+    GEVP --> MASS
+    MASS --> TMIN
+    IO --> RS
+    RS --> RES
+    RES --> SCAT
+    GEVP --> PS
+    MASS --> PS
+    TMIN --> PS
+    SCAT --> PS
+    PS --> OUT
+    JK --> RS
+    MOD --> MASS
+    MOD --> TMIN
+    MOD --> SCAT
+```
+
+### Execution order (`main.py`)
+
+```
+BuildConfig → Config
+    ├─ [optional] run_resample_statistics()  →  resampled/*.npy
+    ├─ meson branch:    En, Z_n, dispersion, t_min
+    └─ tetraquark branch: GEVP → En → ratio → t_min
+         └─ scattering (from resampled/, no raw reload)
+```
+
+Meson and tetraquark switches are **independent**. Ratio / t_min on tetraquark loads meson raw correlators when `run_ratio_analysis=True`.
+
+### Uncertainty propagation
+
+| Stage | Method |
+|-------|--------|
+| Effective mass | `lsqfit` + `gvar` priors; jackknife slices via `statistics/jackknife.py` |
+| Ratio \(R_n(t)\) | Leave-one-out correlators → ratio series → jackknife (`ratio_series_mean_err`) |
+| Resampled energies | Per-replica `En`, \(\xi\) written to `resampled/` for scattering |
+| Scattering | \(K(s)\), \(k\cot\delta_0\) evaluated **per jackknife sample**, then combined |
+| Plots | Error bands from `gvar` mean ± sdev; t_min panels use ±10× reference error |
+
+---
+
+## Analysis capabilities
+
+### 1 · Generalized eigenvalue problem (GEVP)
+
+| Item | Implementation |
+|------|----------------|
+| Matrix assembly | Full finite-volume matrix from 6D tetraquark data (`analysis/gevp.py`) |
+| Solve | \(C(t_1)\psi = \lambda\, C(t_0)\psi\) — `scipy.linalg.eig` |
+| Rotation | `numpy.einsum` eigenvector projection |
+| Output | Diagonal GEVP levels → 4D correlators per \((\text{chan}, n^2)\) |
+| Figures | Before/after matrices, eigenvector heatmaps (`plot_gevp.py`) |
+
+### 2 · Spectroscopy (effective mass)
+
+| Item | Implementation |
+|------|----------------|
+| Models | Registry-based cosh: 2-state (meson) / 3-state (tetraquark) (`models.py`) |
+| Fit | `lsqfit.nonlinear_fit` with channel/momentum priors from `ENSEMBLE_DB` |
+| Observables | \(E_n\), \(Z_n/Z_0\), dispersion \(E_n^2(n^2)\) → lattice scale \(\xi\) |
+| Figures | Multi-channel \(E_n\) overlay (`plot_mass.py`); `FIG_WIDE` layout |
+
+### 3 · Ratio method & \(t_{\min}\) stability
+
+| Item | Implementation |
+|------|----------------|
+| Shifted ratio | \(R_n(t+a_t)\) from 4Q/2Q correlator differences; `ratio_at` controls step \(2a_t\) |
+| Distinguishable | \(R = C_4/(C_a C_b)\) when `is_ratio_shift=False` (open-charm systems) |
+| t_min scan | Symmetric window scan; meson 2-state / tetraquark 3-state + optional ratio overlay |
+| Combine | Reference energy band at configured \(t_{\min}\) on all t_min figures |
+| Figures | `Ratio_{tag}` (fit-window y-limits); `En_tmin_{branch}{n}_mom{m}_{tag}` (`plot_ratio.py`, `plot_tmin.py`) |
+
+### 4 · Finite-volume scattering
+
+| Item | Implementation |
+|------|----------------|
+| Framework | Lüscher quantization condition; precomputed \(\zeta(q^2)\) under `data/zeta/` |
+| Observables | \(K(s)=\sqrt{s}/(k\cot\delta_0)\); phase shift from \(k\cot\delta_0(k^2)\) |
+| Frames | Rest frame; **moving frame** (`run_MF_analysis`, `MF_d_vec`, X3872) |
+| Multi-\(L\) | `scattering_Ns_mom` selects momentum subset per spatial size |
+| Fits | `Ks_linear` or `kcot_quadratic` (`scattering_fit_mode`) |
+| Figures | \(K(s)\) vs \(s\); \(k\cot\delta_0\) vs \(k^2\) with below-threshold \(ik\) guide (`plot_scattering.py`) |
+
+### 5 · Resampling & I/O
+
+| Item | Implementation |
+|------|----------------|
+| Jackknife | Leave-one-out on `sample` axis (401 replicas) |
+| Bootstrap | Optional (`resample_type`, `n_boot`) |
+| Paths | Centralized in `data/io.py`; ensemble tags `L{Ns}M{M}_EV{EV}` |
+| Types | `Correlator4D`, `TetraquarkCorrelator`, `AnalysisCorrelators` — shape-safe `.at()` |
+
+---
+
+## Software engineering
+
+### Configuration model
+
+```
+input/input_<System>.py
+├── InputControl          # user switches (3 sections: mass · scattering · plot)
+├── ENSEMBLE_DB           # per-ensemble meson/tetraquark blocks
+└── get_lattice_params()  # lattice_Ns → (Ns, Nt, M_π, EV)
+
+BuildConfig("<System>").build_config_from_control("meson" | "tetraquark")
+    → frozen Config dataclass
+```
+
+Branch-gated switches (`_branch_switches`): e.g. dispersion only on meson config; GEVP/ratio only on tetraquark.
+
+### Channel resolution (by label fields)
+
+Physics channels are matched from **string labels**, not array indices:
+
+| Field | Resolves to |
+|-------|-------------|
+| `channel_name_list` / `channel_momentum_list` | Chan axis and \(n^2\) values per ensemble |
+| `scattering_channel` | `ScatteringChanMatch` → meson a, meson b, tetra indices |
+| `scattering_channel_MF` | Moving-frame tetra channel (defaults to rest) |
+| `ratio_point_by_label(config, label, n²)` | `ChanMom(chan, mom)` for ratio / t_min lookup |
+
+Tetraquark labels such as `r"J/\psi\,J/\psi"` split on `\,` into meson tokens; normalization ignores separators when matching `scattering_channel`.
+
+### Extensibility
+
+| Task | Steps |
+|------|-------|
+| New hadron system | Copy `input_<System>.py` → add `data/<System>/raw/` → `BuildConfig("System")` in `main.py` |
+| New fit model | Register in `analysis/models.py` → `MODEL_REGISTRY` |
+| New plot | Subclass `BasePlotter` in `plotting/plot_set.py` |
+
+### Code layout
+
+```
+lattice_scattering/
+├── main.py
+├── input/          config.py · input_{Tcccc6600,X3872,Zc3900}.py
+├── data/           correlators.py · io.py · <System>/{raw,resampled}/ · zeta/
+├── analysis/       gevp · fit_mass · fit_tmin · scattering · models
+├── statistics/     jackknife · bootstrap · resample
+├── plotting/       plot_set · plot_gevp · plot_mass · plot_ratio · plot_tmin · plot_scattering
+├── result/<System>/    example figures (tracked)
+├── docs/           RUNNING · TESTING · DEPENDENCIES
+└── tests/          60+ unit tests, synthetic data only
+```
 
 ---
 
@@ -64,16 +255,16 @@ Fully-charm tetraquarks \(T_{cc\bar{c}\bar{c}}\) are exotic-hadron candidates at
 
 ## Example results
 
-\(L=12\) (`L12M420_EV170`) unless noted; \(t_{\min}\) scans: meson & tetraquark on \(L=16\) (`L16M420_EV120`).
+\(L=12\) (`L12M420_EV170`) unless noted; \(t_{\min}\) scans on \(L=16\) (`L16M420_EV120`).
 
-### Generalized Eigenvalue Problem (GEVP)
+### GEVP
 
 <p align="center">
-  <img src="result/Tcccc6600/GEVP_before_L12M420_EV170.png" alt="GEVP matrix before diagonalization" width="48%" />
-  <img src="result/Tcccc6600/GEVP_after_L12M420_EV170.png" alt="GEVP matrix after diagonalization" width="48%" />
+  <img src="result/Tcccc6600/GEVP_before_L12M420_EV170.png" alt="GEVP before" width="48%" />
+  <img src="result/Tcccc6600/GEVP_after_L12M420_EV170.png" alt="GEVP after" width="48%" />
 </p>
 
-GEVP eigenvectors \(v_\beta^{(n)}\) (sorted eigenstate components vs. \(\beta\)):
+Eigenvectors \(v_\beta^{(n)}\):
 
 <p align="center">
   <img src="result/Tcccc6600/GEVP_eigenvector_L12M420_EV170.png" alt="GEVP eigenvector" width="48%" />
@@ -81,46 +272,43 @@ GEVP eigenvectors \(v_\beta^{(n)}\) (sorted eigenstate components vs. \(\beta\))
 
 <p align="center"><sub><code>GEVP_eigenvector_L12M420_EV170</code></sub></p>
 
-### Effective mass \(E_n\) (meson ← · tetraquark →)
+### Effective mass \(E_n\)
 
 <p align="center">
   <img src="result/Tcccc6600/En_meson_L12M420_EV170.png" alt="Meson En" width="48%" />
   <img src="result/Tcccc6600/En_tetraquark_L12M420_EV170.png" alt="Tetraquark En" width="48%" />
 </p>
 
-### Ratio \(R_n(t/a_t)\) — all channels (\(J/\psi\,J/\psi\) & \(\eta_c\,\eta_c\), \(L=16\))
+### Ratio \(R_n(t/a_t)\)
 
-Shifted 4Q/2Q ratio data (markers) and reference-window fit (band + curve) at configured \(t_{\min}\); same multi-channel layout as \(E_n\).
-
-<p align="center">
-  <img src="result/Tcccc6600/Ratio_L16M420_EV120.png" alt="Ratio R_n fits" width="80%" />
-</p>
-
-<p align="center"><sub><code>Ratio_L16M420_EV120</code></sub></p>
-
-### \(t_{\min}\) scan — meson (\(\eta_c\) & \(J/\psi\), \(L=16\))
-
-2-state cosh ○, Combine band (GeV, ±10× jackknife error). Left: \(\eta_c\), \(n^2=0\); right: \(J/\psi\), \(n^2=0\).
+Shifted 4Q/2Q data + reference-window fit. **Left:** \(L=12\); **right:** \(L=16\).
 
 <p align="center">
-  <img src="result/Tcccc6600/En_tmin_meson0_mom0_L16M420_EV120.png" alt="meson tmin eta_c mom0" width="48%" />
-  <img src="result/Tcccc6600/En_tmin_meson1_mom0_L16M420_EV120.png" alt="meson tmin J/psi mom0" width="48%" />
+  <img src="result/Tcccc6600/Ratio_L12M420_EV170.png" alt="Ratio L12" width="48%" />
+  <img src="result/Tcccc6600/Ratio_L16M420_EV120.png" alt="Ratio L16" width="48%" />
 </p>
 
-<p align="center"><sub><code>En_tmin_meson0_mom0_L16M420_EV120</code> · <code>En_tmin_meson1_mom0_L16M420_EV120</code></sub></p>
+<p align="center"><sub><code>Ratio_L12M420_EV170</code> · <code>Ratio_L16M420_EV120</code></sub></p>
 
-### \(t_{\min}\) scan — tetraquark `E2_mom0` & `E2_mom1` (\(J/\psi\,J/\psi\), \(L=16\))
+### \(t_{\min}\) scan — meson
 
-3-state ○, ratio ×, Combine band (GeV, ±10× jackknife error). Left: \(n^2=0\); right: \(n^2=1\).
+2-state ○ + Combine. \(\eta_c\) / \(J/\psi\), \(n^2=0\), \(L=16\).
 
 <p align="center">
-  <img src="result/Tcccc6600/En_tmin_tetraquark1_mom0_L16M420_EV120.png" alt="tetraquark tmin mom0" width="48%" />
-  <img src="result/Tcccc6600/En_tmin_tetraquark1_mom1_L16M420_EV120.png" alt="tetraquark tmin mom1" width="48%" />
+  <img src="result/Tcccc6600/En_tmin_meson0_mom0_L16M420_EV120.png" alt="meson tmin eta_c" width="48%" />
+  <img src="result/Tcccc6600/En_tmin_meson1_mom0_L16M420_EV120.png" alt="meson tmin J/psi" width="48%" />
 </p>
 
-<p align="center"><sub><code>En_tmin_tetraquark1_mom0_L16M420_EV120</code> · <code>En_tmin_tetraquark1_mom1_L16M420_EV120</code></sub></p>
+### \(t_{\min}\) scan — tetraquark (\(J/\psi\,J/\psi\), \(n^2=0,1\))
 
-### Scattering — \(L=12+16\)
+3-state ○, ratio ×, Combine.
+
+<p align="center">
+  <img src="result/Tcccc6600/En_tmin_tetraquark1_mom0_L16M420_EV120.png" alt="tetra tmin mom0" width="48%" />
+  <img src="result/Tcccc6600/En_tmin_tetraquark1_mom1_L16M420_EV120.png" alt="tetra tmin mom1" width="48%" />
+</p>
+
+### Scattering (\(L=12+16\))
 
 <p align="center">
   <img src="result/Tcccc6600/K_s_scattering.png" alt="K(s)" width="48%" />
@@ -129,153 +317,41 @@ Shifted 4Q/2Q ratio data (markers) and reference-window fit (band + curve) at co
 
 ---
 
-## Pipeline
+## Data contract
 
-```
-data/<system>/raw/*.npy  […, sample=401]
-        │
-        ▼  main.py  (input/input_<System>.py switches)
-   run_resample_statistics()     →  resampled/*.npy     (401× jackknife if enabled)
-   process_GEVP()                →  4D tetraquark correlators
-   effective_mass()              →  En, Zn, dispersion
-   plot_tmin_workflow()          →  optional t_min + ratio plots
-   plot_ratio_workflow()         →  Ratio_*.png (when run_ratio_analysis)
-   run_scattering_analysis()     →  K(s), k cot δ₀
-        │
-        ▼
-   result/<system>/*.{png,pdf}
-```
+All arrays: **`float64`**. **`sample` = 401** jackknife replicas. **`mom`** indexes \(n^2\). **`EV`** in filenames = distillation eigenvectors.
 
-**Execution order:** build `Config` → resample (optional) → meson branch → tetraquark branch (GEVP, fits, t_min) → scattering. Meson/tetraquark switches are independent.
-
----
-
-## Code layout
-
-```
-lattice_scattering/
-├── main.py                         # entry: meson/tetraquark branches → scattering → figures
-├── README.md
-├── requirements.txt
-├── requirements-dev.txt
-├── pytest.ini
-├── .github/
-│   └── workflows/
-│       └── ci.yml                  # pytest on Python 3.10 & 3.12
-│
-├── input/
-│   ├── __init__.py
-│   ├── config.py                   # BuildConfig, Config, ENSEMBLE_DB, ensemble tags
-│   ├── input_Tcccc6600.py          # η_cη_c / J/ψJ/ψ, L=12+16
-│   ├── input_X3872.py              # πJ/ψ, ρη_c, DD*, D*D*
-│   └── input_Zc3900.py
-│
-├── data/
-│   ├── correlators.py              # Correlator4D, TetraquarkCorrelator, AnalysisCorrelators
-│   ├── io.py                       # read/write raw & resampled .npy
-│   ├── <System>/                   # Tcccc6600 | X3872 | Zc3900 (not in git)
-│   │   ├── raw/
-│   │   │   ├── correlation_meson_L{Ns}M{M}_EV{EV}.npy
-│   │   │   └── correlation_tetraquark_L{Ns}M{M}_EV{EV}.npy
-│   │   └── resampled/
-│   │       ├── resample_En_{meson,tetraquark}_*.npy
-│   │       └── resample_ksi_meson_*.npy
-│   └── zeta/                       # precomputed Lüscher ζ(q²); moving-frame refs per system
-│
-├── analysis/
-│   ├── __init__.py
-│   ├── gevp.py                     # process_GEVP, solve_GEVP, eigenvector sorting
-│   ├── fit_mass.py                 # RunFitting: effective mass, dispersion, Z_n
-│   ├── fit_tmin.py                 # t_min scan (cosh & ratio), ratio_scan_lookup
-│   ├── scattering.py               # Lüscher K(s), k cot δ, rest & moving frames
-│   └── models.py                   # MathModels, MODEL_REGISTRY (cosh, dispersion, …)
-│
-├── statistics/
-│   ├── __init__.py
-│   ├── jackknife.py                # Jackknife resampler (401 replicas)
-│   ├── bootstrap.py                # Bootstrap resampler (optional)
-│   └── resample.py                 # run_resample_statistics → data/<system>/resampled/
-│
-├── plotting/
-│   ├── __init__.py
-│   ├── plot_set.py                 # BasePlotter, styles, channel labels, save
-│   ├── plot_gevp.py                # GEVP before/after matrices & eigenvectors
-│   ├── plot_mass.py                # E_n, Z_n, dispersion; delegates ratio/t_min
-│   ├── plot_ratio.py               # Ratio R(t) fits (all chans, one figure)
-│   ├── plot_tmin.py                # TminPlotter: cosh & ratio t_min stability
-│   └── plot_scattering.py          # K(s), k cot δ vs. (k/m_π)²
-│
-├── result/
-│   └── <System>/                   # output figures (.png / .pdf); tracked as examples
-│
-├── docs/
-│   ├── RUNNING.md                  # install, data layout, control flags
-│   ├── TESTING.md                  # pytest scope & fixtures
-│   └── DEPENDENCIES.md             # Python packages & optional LaTeX
-│
-└── tests/
-    ├── conftest.py                 # fixtures: tcccc_tetra, label helpers
-    ├── test_channels.py            # scattering_channel / ratio label → indices
-    ├── test_jackknife.py
-    ├── test_io.py
-    ├── test_fit_mass.py
-    ├── test_fit_tmin.py
-    ├── test_plot_set.py
-    ├── test_scattering.py
-    ├── test_scattering_fit.py
-    └── test_analysis_switches.py
-```
-
-New system: copy `input/input_<System>.py`, add `data/<System>/raw/`, change `BuildConfig(...)` in `main.py`.
-
----
-
-## Data
-
-All arrays: **`float64`**. **`sample` = 401** jackknife replicas. **`mom`** = \(n^2\) array index. **`EV`** in filenames = distillation eigenvectors (not `sample` length).
-
-### Shapes
+### Tensor shapes
 
 | Object | Axes |
 |--------|------|
 | Meson raw | `[chan, mom, time, sample]` |
-| Tetraquark raw (6D) | `[chan_src, mom_src, chan_snk, mom_snk, time, sample]` |
+| Tetraquark raw | `[chan_src, mom_src, chan_snk, mom_snk, time, sample]` |
 | After GEVP | `[chan, mom, time, sample]` |
 | Resampled `En` | `[chan, mom, sample]` |
 
-### Raw files (Tcccc6600)
+### Supported systems
+
+| System | \(L\) | EV | Tetraquark channels | Workflow |
+|--------|-------|-----|---------------------|----------|
+| **Tcccc6600** | 12, 16 | 170 / 120 | \(\eta_c\eta_c\), \(J/\psi J/\psi\) | Full: GEVP · ratio · t_min · scattering |
+| **X3872** | 16 | 70 | \(\chi_{c1}\), \(DD^*\), \(J/\psi\omega\) | GEVP · MF scattering (`kcot_quadratic`) |
+| **Zc3900** | 16 | 70 | \(\pi J/\psi\), \(\rho\eta_c\), \(DD^*\), \(D^*D^*\) | Scattering-first (spectroscopy optional) |
+
+### Raw sizes (Tcccc6600)
 
 | File | Shape | Size |
 |------|-------|------|
-| `correlation_meson_L12M420_EV170.npy` | `[2, 10, 96, 401]` | 5.9 MiB |
-| `correlation_tetraquark_L12M420_EV170.npy` | `[2, 5, 2, 5, 96, 401]` | 29 MiB |
-| `correlation_meson_L16M420_EV120.npy` | `[2, 10, 128, 401]` | 7.9 MiB |
-| `correlation_tetraquark_L16M420_EV120.npy` | `[2, 5, 2, 5, 128, 401]` | 39 MiB |
+| `correlation_meson_L12M420_EV170.npy` | `[2, 10, 96, 401]` | 5.9 MiB |
+| `correlation_tetraquark_L12M420_EV170.npy` | `[2, 5, 2, 5, 96, 401]` | 29 MiB |
+| `correlation_meson_L16M420_EV120.npy` | `[2, 10, 128, 401]` | 7.9 MiB |
+| `correlation_tetraquark_L16M420_EV120.npy` | `[2, 5, 2, 5, 128, 401]` | 39 MiB |
 
-~**82 MiB** raw per system (\(L=12+16\)). X3872/Zc3900 (\(L=16\)): meson `[6,5,128,401]`, tetraquark `[4,2,4,2,128,401]`.
-
-### Resampled (`data/<system>/resampled/`)
-
-| Pattern | Shape (example) |
-|---------|-----------------|
-| `resample_En_meson_*` | `[6, 5, 401]` |
-| `resample_En_tetraquark_*` | `[1, 3, 401]` |
-| `resample_ksi_meson_*` | `[6, 401]` |
-
-Scattering uses **401-sample** correlated energies (no raw reload). `run_resample_analysis=True` costs **401×** GEVP+fit per volume; scattering/plotting afterward is cheap.
-
-### Systems & ensembles
-
-| System | \(L\) | EV | Channels |
-|--------|-------|-----|----------|
-| Tcccc6600 | 12, 16 | 170 / 120 | \(\eta_c\eta_c\), \(J/\psi J/\psi\) |
-| X3872, Zc3900 | 16 | 70 | \(\pi J/\psi\), \(\rho\eta_c\), \(DD^*\), \(D^*D^*\) |
-
-Tcccc6600: \(N_t=96/128\), \(m_\pi=420\) MeV, \(a_t^{-1}=7.219\) GeV; scattering volumes and momenta from `scattering_Ns_mom = {12: [...], 16: [...]}`.
+Resampled energies under `data/<system>/resampled/` enable scattering **without** reloading raw correlators.
 
 ---
 
-## Usage
+## Quick start
 
 ```bash
 git clone https://github.com/Geng-Li-1995/lattice_scattering.git
@@ -285,62 +361,65 @@ pip install -r requirements.txt -r requirements-dev.txt
 MPLBACKEND=Agg pytest && python main.py
 ```
 
-Details: [docs/RUNNING.md](docs/RUNNING.md) · [docs/TESTING.md](docs/TESTING.md) · [docs/DEPENDENCIES.md](docs/DEPENDENCIES.md)
-
-### Channel matching (by label fields)
-
-Physics channels are **not** hard-coded by index in analysis code. In `input/input_<System>.py`:
-
-| Field | Resolves to |
-|-------|-------------|
-| `ENSEMBLE_DB[..]["meson"]["channel_name_list"]` | Meson chan axis (LaTeX labels) |
-| `ENSEMBLE_DB[..]["tetraquark"]["channel_name_list"]` | Tetraquark chan axis; split on `\,` for ratio denominators |
-| `scattering_channel` | `resolve_scattering_chan` → meson a, meson b, tetra indices |
-| `scattering_channel_MF` | Moving-frame tetra channel (optional; defaults to rest) |
-| `ratio_point_by_label(config, label, n²)` | `(chan, mom)` key for ratio / t_min lookup |
-
-Tetraquark labels such as `r"J/\psi\,J/\psi"` map to meson chans by **matching token strings** in `channel_name_list`. Normalization ignores `\,`, commas, and spaces when matching `scattering_channel`.
+Place lattice data under `data/<System>/` before running. See [docs/RUNNING.md](docs/RUNNING.md) · [docs/TESTING.md](docs/TESTING.md) · [docs/DEPENDENCIES.md](docs/DEPENDENCIES.md).
 
 ---
 
-### Switches (`input/input_<System>.py`)
+## Configuration
+
+### Control switches (`input/input_<System>.py`)
 
 ```python
+# Effective mass
 lattice_Ns = 12
 run_meson_analysis = True
 run_tetraquark_analysis = True
 run_GEVP_analysis = True
 run_tmin_analysis = True
-run_ratio_analysis = True       # tetraquark branch; loads meson raw for denominators
-is_ratio_shift = True           # True: R_n(t+a_t); False: R = C4/(C_a C_b)
-ratio_at = 1                    # lattice offset a_t in shifted ratio (step = 2*ratio_at)
-run_resample_analysis = False   # True → 401× jackknife
+run_ratio_analysis = True       # loads meson raw for denominators
+is_ratio_shift = True           # R_n(t+a_t) vs R = C4/(Ca Cb)
+ratio_at = 1
+run_resample_analysis = False   # True → 401× jackknife write-out
+
+# Scattering
 run_scattering_analysis = True
-run_MF_analysis = False         # moving-frame scattering (X3872)
-scattering_fit_mode = "Ks_linear"  # or "kcot_quadratic"
-plot_format = "png"             # or "pdf"
-is_plot_title = True            # ensemble tag on figures
-is_plot_show = True             # plt.show() after save (False → plt.close())
-resample_type = "jackknife"     # or "bootstrap"
+scattering_channel = r"J/\psi\,J/\psi"
+scattering_Ns_mom = {12: [0, 1, 2], 16: [0, 1]}
+scattering_fit_mode = "Ks_linear"   # or "kcot_quadratic"
+run_MF_analysis = False             # moving frame (X3872)
+
+# Plot
+plot_format = "png"                 # or "pdf"
+is_plot_title = True
+is_plot_show = True
+k_sq_plot_range = (-0.25, 1.75, -15.0, 15.0)
+s_plot_range = (37, 45, -9.0, 6.0)
 ```
 
-### Figure naming (`plot_format` extension; tag `L{Ns}M{M}_EV{EV}`)
+### Figure naming (tag = `L{Ns}M{M}_EV{EV}`)
 
 | Plot | Pattern |
 |------|---------|
 | GEVP | `GEVP_{before,after,eigenvector}_{tag}` |
 | \(E_n\) | `En_{meson,tetraquark}_{tag}` |
-| \(t_{\min}\) | `En_tmin_meson{n}_mom{m}_{tag}` or `En_tmin_tetraquark{n}_mom{m}_{tag}` |
 | Ratio | `Ratio_{tag}` |
-| Scattering | `K_s_scattering`, `kcot_scattering` (no volume tag) |
-
-`E{n}` = tetraquark chan index; `mom{k}` = \(n^2=k\).
+| \(t_{\min}\) | `En_tmin_{meson,tetraquark}{n}_mom{m}_{tag}` |
+| Scattering | `K_s_scattering`, `kcot_scattering` |
 
 ---
 
 ## Tests & CI
 
-`pytest` on Python 3.10 & 3.12 without lattice data ([CI workflow](.github/workflows/ci.yml)): jackknife, I/O, channel label resolution, scattering algebra, fit/t_min, plot helpers.
+| Coverage | Tests |
+|----------|-------|
+| Statistics | Jackknife mean/SE, leave-one-out |
+| I/O | Path tags, `.npy` round-trip |
+| Channels | Label → index for all three systems |
+| Ratio | Series algebra, `ratio_scan_lookup`, fit-window y-limits |
+| Scattering | Lüscher algebra, `fit_mom_indices`, MF rows |
+| Config | Branch gating, plot flags |
+
+**60+** pytest cases on Python **3.10** & **3.12** — synthetic arrays only, no lattice files in CI ([workflow](.github/workflows/ci.yml)).
 
 ---
 
@@ -353,13 +432,7 @@ resample_type = "jackknife"     # or "bootstrap"
 
 ## Author
 
-**Dr. Geng Li**
-
-Background in theoretical physics and computational high-energy physics (lattice QCD). Research interests include scientific computing, HPC, and machine learning on structured data.
-
-For collaboration, citation, or further information, please contact the author via the repository contact details.
-
----
+**Dr. Geng Li** — lattice QCD, scientific computing, HPC. For collaboration or citation, contact via repository details.
 
 ## License
 
