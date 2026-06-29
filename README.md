@@ -136,8 +136,8 @@ Meson and tetraquark switches are **independent**. Ratio / t_min on tetraquark l
 
 | Item | Implementation |
 |------|----------------|
-| Shifted ratio | \(R_n(t+a_t)\) from 4Q/2Q correlator differences; `ratio_at` controls step \(2a_t\) |
-| Distinguishable | \(R = C_4/(C_a C_b)\) when `is_ratio_shift=False` (open-charm systems) |
+| Shifted ratio (`is_ratio_shift=True`) | \(R_n(t+a_t)=\Delta C_4/\Delta C_2^2\) with \(\Delta\) over \(2a_t\) lattice steps; identical mesons share one \(C_2\) |
+| Direct ratio (`is_ratio_shift=False`) | \(R(t)=C_4(t)/[C_a(t)\,C_b(t)]\) (open-charm / distinguishable mesons) |
 | t_min scan | Symmetric window scan; meson 2-state / tetraquark 3-state + optional ratio overlay |
 | Combine | Reference energy band at configured \(t_{\min}\) on all t_min figures |
 | Figures | `Ratio_{tag}` (fit-window y-limits); `En_tmin_{branch}{n}_mom{m}_{tag}` (`plot_ratio.py`, `plot_tmin.py`) |
@@ -213,7 +213,7 @@ lattice_scattering/
 ├── plotting/       plot_set · plot_gevp · plot_mass · plot_ratio · plot_tmin · plot_scattering
 ├── result/<System>/    example figures (tracked)
 ├── docs/           RUNNING · TESTING · DEPENDENCIES
-└── tests/          60+ unit tests, synthetic data only
+└── tests/          ~19 consolidated unit tests (synthetic data only)
 ```
 
 ---
@@ -256,7 +256,7 @@ Eigenvectors \(v_\beta^{(n)}\):
 
 ### Ratio \(R_n(t/a_t)\)
 
-Shifted 4Q/2Q data + reference-window fit. **Left:** \(L=12\); **right:** \(L=16\).
+Shifted-ratio series \(\Delta C_4/\Delta C_2^2\) (data) and reference-window fit (band + curve). **Left:** \(L=12\); **right:** \(L=16\).
 
 <p align="center">
   <img src="result/Tcccc6600/Ratio_L12M420_EV170.png" alt="Ratio L12" width="48%" />
@@ -352,7 +352,7 @@ run_tetraquark_analysis = True
 run_GEVP_analysis = True
 run_tmin_analysis = True
 run_ratio_analysis = True       # loads meson raw for denominators
-is_ratio_shift = True           # R_n(t+a_t) vs R = C4/(Ca Cb)
+is_ratio_shift = True           # True: R_n from ΔC4/ΔC2²; False: R = C4/(Ca·Cb)
 ratio_at = 1
 run_resample_analysis = False   # True → 401× jackknife write-out
 
@@ -385,16 +385,14 @@ s_plot_range = (37, 45, -9.0, 6.0)
 
 ## Tests & CI
 
-| Coverage | Tests |
-|----------|-------|
-| Statistics | Jackknife mean/SE, leave-one-out |
-| I/O | Path tags, `.npy` round-trip |
-| Channels | Label → index for all three systems |
-| Ratio | Series algebra, `ratio_scan_lookup`, fit-window y-limits |
-| Scattering | Lüscher algebra, `fit_mom_indices`, MF rows |
-| Config | Branch gating, plot flags |
+| File | Coverage |
+|------|----------|
+| `test_config.py` | Channel labels (3 systems), ratio lookup, branch/plot switches |
+| `test_fit_tmin.py` | Ratio series, fits, jackknife errors |
+| `test_scattering.py` | Lüscher algebra, momentum indices, MF rows |
+| `test_io.py` · `test_jackknife.py` · `test_plot.py` · `test_fit_mass.py` | I/O, resampling, plot helpers, dispersion |
 
-**60+** pytest cases on Python **3.10** & **3.12** — synthetic arrays only, no lattice files in CI ([workflow](.github/workflows/ci.yml)).
+**19** pytest cases on Python **3.10** & **3.12** — synthetic data only, no lattice files in CI ([workflow](.github/workflows/ci.yml)).
 
 ---
 

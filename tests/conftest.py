@@ -2,39 +2,26 @@
 
 from __future__ import annotations
 
-import numpy as np
 import pytest
-from dataclasses import replace
 
 from input.config import (
     BuildConfig,
-    ChanMom,
     Config,
     ScatteringChanMatch,
     meson_chan_index,
     ratio_point_by_label,
-    resolve_scattering_chan,
 )
 
 
 @pytest.fixture
-def rng() -> np.random.Generator:
+def rng():
+    import numpy as np
     return np.random.default_rng(0)
 
 
 @pytest.fixture
-def tcccc_builder() -> BuildConfig:
-    return BuildConfig("Tcccc6600")
-
-
-@pytest.fixture
-def tcccc_tetra(tcccc_builder: BuildConfig) -> Config:
-    return tcccc_builder.build_config_from_control("tetraquark")
-
-
-@pytest.fixture
-def tcccc_meson(tcccc_builder: BuildConfig) -> Config:
-    return tcccc_builder.build_config_from_control("meson")
+def tcccc_tetra() -> Config:
+    return BuildConfig("Tcccc6600").build_config_from_control("tetraquark")
 
 
 @pytest.fixture
@@ -55,32 +42,9 @@ def assert_scattering_labels(
     meson_b: str,
     tetra: str,
 ) -> None:
-    """Assert channel indices match LaTeX labels from ENSEMBLE_DB."""
-    meson_names = config.meson_chan_name_list
-    tetra_names = config.tetra_chan_name_list
-    assert meson_names[match.meson_a] == meson_a
-    assert meson_names[match.meson_b] == meson_b
-    assert tetra_names[match.tetra] == tetra
-
-
-def assert_ratio_point_labels(
-    config: Config,
-    point: ChanMom,
-    *,
-    tetra: str,
-    meson_a: str,
-    meson_b: str | None = None,
-) -> None:
-    """Assert ratio lookup key resolves to expected meson labels."""
-    from analysis.fit_tmin import ratio_scan_lookup
-
-    target = ratio_scan_lookup(config)[point.key]
-    meson_names = config.meson_chan_name_list
-    tetra_names = config.tetra_chan_name_list
-    assert tetra_names[point.chan] == tetra
-    assert meson_names[target.meson_chan] == meson_a
-    if meson_b is not None:
-        assert meson_names[target.meson_b_chan] == meson_b
+    assert config.meson_chan_name_list[match.meson_a] == meson_a
+    assert config.meson_chan_name_list[match.meson_b] == meson_b
+    assert config.tetra_chan_name_list[match.tetra] == tetra
 
 
 def meson_idx(config: Config, label: str) -> int:

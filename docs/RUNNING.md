@@ -170,7 +170,7 @@ class InputControl(InputControlBase):
 | Switch | Section | Effect |
 |--------|---------|--------|
 | `run_tmin_analysis` | Effective mass | Scan `t_min`: meson 2-state \(E\); tetraquark 3-state + ratio |
-| `run_ratio_analysis` | Effective mass | 4Q/2Q ratio fits and figures |
+| `run_ratio_analysis` | Effective mass | Ratio fits (`R_n` or `R=C₄/CₐCᵦ`) and `Ratio_*` figures |
 | `t_run_start` / `t_run_stop` / `t_run_step` | Effective mass | Grid of scanned `t_min` values |
 | `ratio_at` | Effective mass | Offset ``a_t`` in ``R_n(t+a_t)`` |
 | `lattice_Ns` | Effective mass | Primary ensemble for raw-data analysis |

@@ -1,4 +1,4 @@
-"""Scan fit windows in t_min and 4Q/2Q ratio fits."""
+"""Scan fit windows in t_min and ratio fits (shifted ΔC₄/ΔC₂² and direct C₄/CₐCᵦ)."""
 
 from __future__ import annotations
 
