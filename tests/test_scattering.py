@@ -1,12 +1,6 @@
 import numpy as np
 
-from analysis.scattering import _analyze_rest_momentum, kallen, q_sq_linspace
-
-
-def test_kallen_matches_formula():
-    a, b, c = 16.0, 4.0, 1.0
-    expected = a**2 + b**2 + c**2 - 2 * (a * b + a * c + b * c)
-    assert kallen(a, b, c) == expected
+from analysis.scattering import _analyze_rest_momentum, q_sq_linspace
 
 
 def test_q_sq_linspace_endpoints():

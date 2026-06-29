@@ -17,7 +17,7 @@ class MathModels:
         mid = lattice_Nt / 2
         return (
             parameter["weff_0"] * gv.cosh(parameter["meff_0"] * (t - mid))
-            + parameter["weff_1"]
+            + parameter["weff_1"] * gv.cosh(parameter["meff_1"] * (t - mid))
             + parameter["weff_2"] * gv.cosh(parameter["meff_2"] * (t - mid))
         )
 
@@ -43,10 +43,25 @@ class MathModels:
         )
 
     @staticmethod
+    def ratio_exponential(t, parameter, lattice_Nt: int):
+        """R(t) = A exp(-ΔE (t - t_mid)) for C4 / (C_a C_b)."""
+        mid = lattice_Nt / 2
+        return parameter["A"] * gv.exp(-parameter["delta_E"] * (t - mid))
+
+    @staticmethod
     def prior_ratio_delta(preset: float, ar_mean: float = 5.0, ar_sdev: float = 5.0):
         return {
             "ar": gv.gvar(ar_mean, ar_sdev),
             "delta_m": gv.gvar(preset, 0.01),
+        }
+
+    @staticmethod
+    def prior_ratio_exponential(
+        preset_delta_e: float, a_mean: float = 1.0, a_sdev: float = 0.1
+    ):
+        return {
+            "A": gv.gvar(a_mean, a_sdev),
+            "delta_E": gv.gvar(preset_delta_e, 0.01),
         }
 
     @staticmethod
@@ -57,22 +72,23 @@ class MathModels:
         )
 
     @staticmethod
-    def prior_two_states(meff_prior, weff_prior):
+    def prior_two_states(meff_prior, weff_prior, meff_sdev, weff_sdev):
         return {
-            "weff_0": gv.gvar(weff_prior[0], 0.1),
-            "weff_1": gv.gvar(weff_prior[1], 0.01),
-            "meff_0": gv.gvar(meff_prior[0], 0.01),
-            "meff_1": gv.gvar(meff_prior[1], 0.1),
+            "weff_0": gv.gvar(weff_prior[0], weff_sdev[0]),
+            "weff_1": gv.gvar(weff_prior[1], weff_sdev[1]),
+            "meff_0": gv.gvar(meff_prior[0], meff_sdev[0]),
+            "meff_1": gv.gvar(meff_prior[1], meff_sdev[1]),
         }
 
     @staticmethod
-    def prior_three_states(meff_prior, weff_prior):
+    def prior_three_states(meff_prior, weff_prior, meff_sdev, weff_sdev):
         return {
-            "weff_0": gv.gvar(weff_prior[0], 1.0),
-            "weff_1": gv.gvar(weff_prior[1], 1.0),
-            "weff_2": gv.gvar(weff_prior[2], 0.01),
-            "meff_0": gv.gvar(meff_prior[0], 0.01),
-            "meff_2": gv.gvar(meff_prior[2], 0.1),
+            "weff_0": gv.gvar(weff_prior[0], weff_sdev[0]),
+            "weff_1": gv.gvar(weff_prior[1], weff_sdev[1]),
+            "weff_2": gv.gvar(weff_prior[2], weff_sdev[2]),
+            "meff_0": gv.gvar(meff_prior[0], meff_sdev[0]),
+            "meff_1": gv.gvar(meff_prior[1], meff_sdev[1]),
+            "meff_2": gv.gvar(meff_prior[2], meff_sdev[2]),
         }
 
     @staticmethod

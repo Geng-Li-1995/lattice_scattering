@@ -15,7 +15,7 @@ def _as_f64(arr: np.ndarray) -> np.ndarray:
 
 @dataclass
 class Correlator4D:
-    """[channel, momentum, time, sample]; momentum index = n^2 on the lattice."""
+    """[chan, momentum, time, sample]; momentum index = n^2 on the lattice."""
 
     data: np.ndarray
 
@@ -24,16 +24,16 @@ class Correlator4D:
         if self.data.ndim != 4:
             raise ValueError(f"Correlator4D expects 4 axes, got shape {self.data.shape}")
 
-    def __getitem__(self, ch: int) -> np.ndarray:
-        return self.data[ch]
+    def __getitem__(self, chan: int) -> np.ndarray:
+        return self.data[chan]
 
-    def at(self, ch: int, mom: int) -> np.ndarray:
-        return self.data[ch, mom]
+    def at(self, chan: int, mom: int) -> np.ndarray:
+        return self.data[chan, mom]
 
 
 @dataclass
 class TetraquarkCorrelator:
-    """[ch_src, mom_src, ch_snk, mom_snk, time, sample]; mom indices = n^2."""
+    """[chan_src, mom_src, chan_snk, mom_snk, time, sample]; mom indices = n^2."""
 
     data: np.ndarray
 
@@ -42,8 +42,8 @@ class TetraquarkCorrelator:
         if self.data.ndim != 6:
             raise ValueError(f"TetraquarkCorrelator expects 6 axes, got shape {self.data.shape}")
 
-    def at(self, ch_src: int, mom_src: int, ch_snk: int, mom_snk: int) -> np.ndarray:
-        return self.data[ch_src, mom_src, ch_snk, mom_snk]
+    def at(self, chan_src: int, mom_src: int, chan_snk: int, mom_snk: int) -> np.ndarray:
+        return self.data[chan_src, mom_src, chan_snk, mom_snk]
 
     @property
     def n_time(self) -> int:
@@ -99,12 +99,12 @@ class AnalysisCorrelators:
         tetra = data if isinstance(data, Correlator4D) else Correlator4D(data)
         return AnalysisCorrelators(meson=self.meson, tetraquark=tetra)
 
-    def active(self, is_meson_analysis: bool, is_tetraquark_analysis: bool) -> Correlator4D:
-        if is_meson_analysis:
+    def active(self, run_meson_analysis: bool, run_tetraquark_analysis: bool) -> Correlator4D:
+        if run_meson_analysis:
             if self.meson is None:
                 raise ValueError("Meson correlator not loaded.")
             return self.meson
-        if is_tetraquark_analysis:
+        if run_tetraquark_analysis:
             if self.tetraquark is None:
                 raise ValueError("Tetraquark correlator not loaded.")
             return self.tetraquark

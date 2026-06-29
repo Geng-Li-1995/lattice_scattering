@@ -10,26 +10,25 @@ from data.io import (
     mf_scatter_array_to_results,
     mf_scatter_path,
     mf_scatter_results_to_array,
+    resample_en_path,
     save_mf_scatter_all,
     save_mf_scatter_ref,
 )
-from input.config import BuildConfig, ensemble_tag, moving_frame_d_tag
-
-
-def test_ensemble_tag_format():
-    assert ensemble_tag((16, 128, 420, 70)) == "L16M420_EV70"
-
-
-def test_moving_frame_d_tag_format():
-    assert moving_frame_d_tag((0, 0, 1)) == "d001"
-    assert moving_frame_d_tag((1, 0, 2)) == "d102"
+from input.config import BuildConfig
 
 
 def test_mf_scatter_path_naming():
     config = BuildConfig("X3872").build_config_from_control("tetraquark")
-    config = replace(config, moving_frame_zeta_lamda=50)
+    config = replace(config, MF_zeta_lamda=50)
     path = mf_scatter_path(config, (16, 128, 420, 70))
     assert path.name == "resample_scatter_MF_d001_lam50_L16M420_EV70.npy"
+    assert path.parent.name == "resampled"
+
+
+def test_resample_en_path_matches_read_write():
+    config = BuildConfig("Tcccc6600").build_config_from_control("meson")
+    path = resample_en_path(config, "meson", config.ensemble_key)
+    assert path.name == f"resample_En_meson_{config.tag_name}.npy"
     assert path.parent.name == "resampled"
 
 

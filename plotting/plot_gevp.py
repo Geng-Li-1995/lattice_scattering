@@ -10,6 +10,7 @@ from plotting.plot_set import (
     FS_TICK_DENSE,
     label_axes,
     new_figure,
+    set_figure_title,
 )
 
 
@@ -17,9 +18,6 @@ class GEVPPlotter(BasePlotter):
 
     def __init__(self, config: Config):
         super().__init__(config)
-        self.tag_name = config.tag_name
-        self.chan_momt_list = config.chan_momt_list
-        self.chan_name_list = config.chan_name_list
         self.tx = config.t_GEVP[2]
 
     def _save_gevp(self, name: str) -> None:
@@ -27,8 +25,8 @@ class GEVPPlotter(BasePlotter):
 
     def _fve_labels(self) -> list[str]:
         return [
-            rf"${self.chan_name_list[ch_idx]}({mom})$"
-            for ch_idx, mom_list in enumerate(self.chan_momt_list)
+            rf"${self.chan_name_list[chan_idx]}({mom})$"
+            for chan_idx, mom_list in enumerate(self.chan_momentum_list)
             for mom in mom_list
         ]
 
@@ -47,7 +45,7 @@ class GEVPPlotter(BasePlotter):
         plt.colorbar().ax.tick_params(labelsize=FS_COLORBAR)
         plt.xticks(np.arange(len(labels)), labels, fontsize=FS_TICK_DENSE, rotation=45)
         plt.yticks(np.arange(len(labels)), labels, fontsize=FS_TICK_DENSE)
-        plt.title(title)
+        set_figure_title(self._figure_title(prefix=title, sep=" on "))
         label_axes("snk", "src")
         self._save_gevp(filename)
 
@@ -66,7 +64,12 @@ class GEVPPlotter(BasePlotter):
         plt.xticks(np.arange(n), np.arange(n) + 1, fontsize=FS_TICK)
         plt.yticks(np.arange(n), np.arange(n) + 1, fontsize=FS_TICK)
         label_axes(r"$\beta$", r"$n$")
-        plt.title(rf"GEVP eigenvector $v_\beta^{{(n)}}$ on {self.tag_name}")
+        set_figure_title(
+            self._figure_title(
+                prefix=rf"GEVP eigenvector $v_\beta^{{(n)}}$",
+                sep=" on ",
+            )
+        )
         self._save_gevp("GEVP_eigenvector")
 
         for matrix, title, filename, vmin, vmax in (
@@ -76,7 +79,7 @@ class GEVPPlotter(BasePlotter):
             self._plot_matrix(
                 self._normalize_at_t(matrix, self.tx),
                 labels,
-                title=rf"{title} GEVP on {self.tag_name} ($t/a_t$={self.tx})",
+                title=rf"{title} GEVP ($t/a_t$={self.tx})",
                 filename=filename,
                 vmin=vmin,
                 vmax=vmax,

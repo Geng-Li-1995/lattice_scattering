@@ -19,30 +19,30 @@ def process_GEVP(
 ) -> tuple[AnalysisCorrelators, GEVPPlotData | None]:
     corr = AnalysisCorrelators.from_raw(raw)
 
-    if not config.is_tetraquark_analysis or raw.tetraquark is None:
+    if not config.run_tetraquark_analysis or raw.tetraquark is None:
         return corr, None
 
     tetra = raw.tetraquark
-    chan_momt_list = config.chan_momt_list
-    n_mom_per_ch = [len(moms) for moms in chan_momt_list]
-    n_fve = sum(n_mom_per_ch)
-    offsets = np.cumsum([0, *n_mom_per_ch[:-1]])
+    chan_momentum_list = config.chan_momentum_list
+    n_mom_per_chan = [len(moms) for moms in chan_momentum_list]
+    n_fve = sum(n_mom_per_chan)
+    offsets = np.cumsum([0, *n_mom_per_chan[:-1]])
 
     matrix_before_gevp = np.zeros((n_fve, n_fve, tetra.n_time, tetra.n_sample))
-    for ch_src, mom_list_src in enumerate(chan_momt_list):
+    for chan_src, mom_list_src in enumerate(chan_momentum_list):
         for mom_idx_src, mom_src in enumerate(mom_list_src):
-            for ch_snk, mom_list_snk in enumerate(chan_momt_list):
+            for chan_snk, mom_list_snk in enumerate(chan_momentum_list):
                 for mom_idx_snk, mom_snk in enumerate(mom_list_snk):
-                    fve_src = offsets[ch_src] + mom_idx_src
-                    fve_snk = offsets[ch_snk] + mom_idx_snk
+                    fve_src = offsets[chan_src] + mom_idx_src
+                    fve_snk = offsets[chan_snk] + mom_idx_snk
                     matrix_before_gevp[fve_src, fve_snk] = tetra.at(
-                        ch_src, mom_src, ch_snk, mom_snk
+                        chan_src, mom_src, chan_snk, mom_snk
                     )
 
     print("matrix_before_gevp.shape:", matrix_before_gevp.shape)
 
     gevp_plot_data = None
-    if config.is_gevp:
+    if config.run_GEVP_analysis:
         matrix_after_gevp, _, eigenvectors = solve_GEVP(config, matrix_before_gevp)
         gevp_plot_data = GEVPPlotData(matrix_before_gevp, matrix_after_gevp, eigenvectors)
     else:
@@ -50,13 +50,13 @@ def process_GEVP(
 
     diag = np.diagonal(matrix_after_gevp, axis1=0, axis2=1)
     corr_after_gevp = np.zeros(
-        (len(chan_momt_list), max(n_mom_per_ch), diag.shape[0], diag.shape[1])
+        (len(chan_momentum_list), max(n_mom_per_chan), diag.shape[0], diag.shape[1])
     )
 
     fve_idx = 0
-    for ch_idx, mom_list in enumerate(chan_momt_list):
+    for chan_idx, mom_list in enumerate(chan_momentum_list):
         for mom in mom_list:
-            corr_after_gevp[ch_idx, mom] = diag[:, :, fve_idx]
+            corr_after_gevp[chan_idx, mom] = diag[:, :, fve_idx]
             fve_idx += 1
 
     print("corr_after_gevp.shape:", corr_after_gevp.shape)

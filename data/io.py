@@ -8,21 +8,50 @@ from input.config import (
     EnsembleKey,
     ResampleDataDict,
     ensemble_tag,
-    moving_frame_d_tag,
+    MF_d_tag,
 )
 
 SCATTER_STAT_NAMES = ("Ks", "s", "k_sq", "kcot")
 
 
+def data_dir(config: Config) -> Path:
+    return Path(f"data/{config.input_name}")
+
+
+def raw_dir(config: Config) -> Path:
+    return data_dir(config) / "raw"
+
+
+def resampled_dir(config: Config) -> Path:
+    return data_dir(config) / "resampled"
+
+
+def raw_correlator_path(config: Config, corr_type: str) -> Path:
+    tag = ensemble_tag(config.ensemble_key)
+    return raw_dir(config) / f"correlation_{corr_type}_{tag}.npy"
+
+
+def resample_en_path(config: Config, corr_type: str, ensemble_key: EnsembleKey) -> Path:
+    tag = ensemble_tag(ensemble_key)
+    return resampled_dir(config) / f"resample_En_{corr_type}_{tag}.npy"
+
+
+def resample_en_mf_tetraquark_path(config: Config, ensemble_key: EnsembleKey) -> Path:
+    d_tag = MF_d_tag(config.MF_d_vec)
+    tag = ensemble_tag(ensemble_key)
+    return resampled_dir(config) / f"resample_En_{d_tag}_tetraquark_{tag}.npy"
+
+
+def resample_ksi_meson_path(config: Config, ensemble_key: EnsembleKey) -> Path:
+    tag = ensemble_tag(ensemble_key)
+    return resampled_dir(config) / f"resample_ksi_meson_{tag}.npy"
+
+
 def _corr_types(config: Config) -> list[str]:
     corr_types = []
-    if config.is_meson_analysis or (
-        config.is_tetraquark_analysis
-        and config.run_tmin
-        and (config.is_ratio or config.ratio_scan_points)
-    ):
+    if config.run_meson_analysis or (config.run_tetraquark_analysis and config.run_ratio_analysis):
         corr_types.append("meson")
-    if config.is_tetraquark_analysis:
+    if config.run_tetraquark_analysis:
         corr_types.append("tetraquark")
     return corr_types
 
@@ -33,21 +62,36 @@ def _load_npy(path: Path) -> np.ndarray:
     return np.asarray(np.load(path), dtype=np.float64)
 
 
-def _resampled_dir(config: Config) -> Path:
-    return Path(f"data/{config.input_name}/resampled")
+def save_npy(path: Path, array: np.ndarray) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    np.save(path, array)
+
+
+def save_resample_en(
+    config: Config, corr_type: str, ensemble_key: EnsembleKey, array: np.ndarray
+) -> Path:
+    path = resample_en_path(config, corr_type, ensemble_key)
+    save_npy(path, array)
+    return path
+
+
+def save_resample_ksi_meson(
+    config: Config, ensemble_key: EnsembleKey, array: np.ndarray
+) -> Path:
+    path = resample_ksi_meson_path(config, ensemble_key)
+    save_npy(path, array)
+    return path
 
 
 # ---------------------------------------------------------------------------
 # Raw and resampled energy I/O
 # ---------------------------------------------------------------------------
 def read_raw_files(config: Config) -> RawCorrelators:
-    raw_dir = Path(f"data/{config.input_name}/raw")
-    tag = ensemble_tag(config.ensemble_key)
     meson = None
     tetraquark = None
 
     for corr_type in _corr_types(config):
-        path = raw_dir / f"correlation_{corr_type}_{tag}.npy"
+        path = raw_correlator_path(config, corr_type)
         arr = _load_npy(path)
         print(f"{corr_type} data.shape: {arr.shape}")
         if corr_type == "meson":
@@ -61,34 +105,29 @@ def read_raw_files(config: Config) -> RawCorrelators:
 def read_resampled_files(config: Config) -> ResampleDataDict:
     resampled: ResampleDataDict = {}
 
-    if not config.run_scattering:
+    if not config.run_scattering_analysis:
         return resampled
-
-    resampled_dir = _resampled_dir(config)
 
     for corr_type in ("meson", "tetraquark"):
         resampled[corr_type] = {}
         for ensemble_key in config.scattering_list:
-            path = resampled_dir / f"resample_En_{corr_type}_{ensemble_tag(ensemble_key)}.npy"
+            path = resample_en_path(config, corr_type, ensemble_key)
             arr = _load_npy(path)
             resampled[corr_type][ensemble_key] = arr
             print(f"Resampled {corr_type} Ns={ensemble_key[0]}, shape={arr.shape}")
 
-    if config.is_moving_frame:
+    if config.run_MF_analysis:
         resampled["tetraquark_MF"] = {}
-        d_tag = moving_frame_d_tag(config.moving_frame_d_vec)
+        d_tag = MF_d_tag(config.MF_d_vec)
         for ensemble_key in config.scattering_list:
-            path = (
-                resampled_dir
-                / f"resample_En_{d_tag}_tetraquark_{ensemble_tag(ensemble_key)}.npy"
-            )
+            path = resample_en_mf_tetraquark_path(config, ensemble_key)
             arr = _load_npy(path)
             resampled["tetraquark_MF"][ensemble_key] = arr
             print(f"Resampled MF tetraquark ({d_tag}) Ns={ensemble_key[0]}, shape={arr.shape}")
 
     resampled["ksi"] = {}
     for ensemble_key in config.scattering_list:
-        path = resampled_dir / f"resample_ksi_meson_{ensemble_tag(ensemble_key)}.npy"
+        path = resample_ksi_meson_path(config, ensemble_key)
         arr = _load_npy(path)
         resampled["ksi"][ensemble_key] = arr
         print(f"Resampled ksi meson shape: {arr.shape}")
@@ -100,19 +139,19 @@ def read_resampled_files(config: Config) -> ResampleDataDict:
 # Moving-frame scatter cache I/O
 # ---------------------------------------------------------------------------
 def mf_scatter_path(config: Config, ensemble_key: EnsembleKey) -> Path:
-    d_tag = moving_frame_d_tag(config.moving_frame_d_vec)
+    d_tag = MF_d_tag(config.MF_d_vec)
     tag = ensemble_tag(ensemble_key)
-    lamda = config.moving_frame_zeta_lamda
-    return _resampled_dir(config) / f"resample_scatter_MF_{d_tag}_lam{lamda}_{tag}.npy"
+    lamda = config.MF_zeta_lamda
+    return resampled_dir(config) / f"resample_scatter_MF_{d_tag}_lam{lamda}_{tag}.npy"
 
 
 def mf_scatter_ref_path(config: Config, ensemble_key: EnsembleKey) -> Path:
-    d_tag = moving_frame_d_tag(config.moving_frame_d_vec)
+    d_tag = MF_d_tag(config.MF_d_vec)
     tag = ensemble_tag(ensemble_key)
-    lamda = config.moving_frame_zeta_lamda
-    n_q = config.moving_frame_zeta_n_q
+    lamda = config.MF_zeta_lamda
+    n_q = config.MF_zeta_n_q
     return (
-        _resampled_dir(config)
+        resampled_dir(config)
         / f"resample_scatter_MF_ref_{d_tag}_lam{lamda}_nq{n_q}_{tag}.npy"
     )
 
@@ -148,8 +187,7 @@ def load_mf_scatter_all(path: Path) -> list[dict[str, np.ndarray]] | None:
 
 
 def save_mf_scatter_all(path: Path, results: list[dict]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    np.save(path, mf_scatter_results_to_array(results))
+    save_npy(path, mf_scatter_results_to_array(results))
 
 
 def load_mf_scatter_ref(path: Path) -> tuple[np.ndarray, np.ndarray] | None:
@@ -162,5 +200,4 @@ def load_mf_scatter_ref(path: Path) -> tuple[np.ndarray, np.ndarray] | None:
 
 
 def save_mf_scatter_ref(path: Path, k_sq_ref: np.ndarray, kcot_ref: np.ndarray) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    np.save(path, np.stack([k_sq_ref, kcot_ref], axis=0))
+    save_npy(path, np.stack([k_sq_ref, kcot_ref], axis=0))

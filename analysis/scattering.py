@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 from collections import defaultdict
 from pathlib import Path
 
@@ -20,7 +21,14 @@ from data.io import (
     save_mf_scatter_all,
     save_mf_scatter_ref,
 )
-from input.config import Config, ResampleDataDict, ensemble_tag, moving_frame_d_tag
+from input.config import (
+    Config,
+    ResampleDataDict,
+    ensemble_tag,
+    MF_d_tag,
+    scattering_chan_indices_for_ensemble,
+    scattering_momenta_from_db,
+)
 from statistics.resample import get_resampler
 
 _TWO_PI = 2.0 * np.pi
@@ -66,7 +74,7 @@ def build_r_sq_from_n_vec(
     return np.sum(r_vec * r_vec, axis=-1)
 
 
-def build_moving_frame_n_vec_array(
+def build_MF_n_vec_array(
     lamda: int,
     d_vec: np.ndarray,
     alpha: float,
@@ -101,7 +109,7 @@ def gen_zeta_00_rest_from_q_sq_array(
     return zeta_array
 
 
-def gen_zeta_00_moving_from_q_sq_array(
+def gen_zeta_00_MF_from_q_sq_array(
     q_sq_grid: np.ndarray,
     config: Config,
     ensemble_key,
@@ -110,17 +118,17 @@ def gen_zeta_00_moving_from_q_sq_array(
     gamma: float,
     alpha: float,
 ) -> np.ndarray:
-    d_tag = moving_frame_d_tag(tuple(int(component) for component in d_vec))
+    d_tag = MF_d_tag(tuple(int(component) for component in d_vec))
     save_path = Path(
-        f"data/zeta/zeta_00_moving_{config.input_name}_"
+        f"data/zeta/zeta_00_MF_{config.input_name}_"
         f"{ensemble_tag(ensemble_key)}_"
         f"{d_tag}_lam{lamda}_nq{len(q_sq_grid)}.npy"
     )
-    if (not config.regen_moving_frame_zeta) and save_path.exists():
+    if (not config.regen_MF_zeta) and save_path.exists():
         print(f"Loading {save_path}")
         return np.load(save_path)
 
-    n_vec_array = build_moving_frame_n_vec_array(lamda, d_vec, alpha, gamma)
+    n_vec_array = build_MF_n_vec_array(lamda, d_vec, alpha, gamma)
     r_sq_array = build_r_sq_from_n_vec(n_vec_array, d_vec, alpha, gamma)
     r_sq_array = r_sq_array[r_sq_array <= lamda**2]
 
@@ -129,7 +137,7 @@ def gen_zeta_00_moving_from_q_sq_array(
         f"n_vec={len(n_vec_array)}, r_vec={len(r_sq_array)}"
     )
     zeta_array = np.asarray(
-        [gen_zeta_00_moving_from_q_sq(r_sq_array, q_sq, lamda) for q_sq in q_sq_grid],
+        [gen_zeta_00_MF_from_q_sq(r_sq_array, q_sq, lamda) for q_sq in q_sq_grid],
         dtype=float,
     )
     save_path.parent.mkdir(parents=True, exist_ok=True)
@@ -138,7 +146,7 @@ def gen_zeta_00_moving_from_q_sq_array(
     return zeta_array
 
 
-def gen_zeta_00_moving_from_q_sq(r_sq_array: np.ndarray, q_sq: float, lamda: int) -> float:
+def gen_zeta_00_MF_from_q_sq(r_sq_array: np.ndarray, q_sq: float, lamda: int) -> float:
     mask = ~np.isclose(r_sq_array, q_sq)
     sum_part = np.sum(1.0 / (r_sq_array[mask] - q_sq))
 
@@ -162,22 +170,26 @@ def _gen_zeta_00_rest_from_q_sq(n_sq_array: np.ndarray, q_sq: float, lamda: int)
 # Scattering-phase fits
 # ---------------------------------------------------------------------------
 def fit_mom_indices(config: Config, scattering_dict: dict) -> dict[int, list[int]]:
-    """Return momentum-level indices used in the scattering fit."""
-    if not config.is_moving_frame:
-        return config.fit_mom_by_ns
+    """Row indices into per-L plot arrays for ``scattering_Ns_mom`` / ``_MF`` fit points."""
+    plot_moms = scattering_dict["plot_moms"]
+    fit_row_by_Ns: dict[int, list[int]] = {}
 
-    fit_mom_by_ns: dict[int, list[int]] = {}
     for ensemble_key in config.scattering_list:
-        ns = ensemble_key[0]
-        rest_point_count = scattering_dict["rest_point_count"][ns]
-        fit_mom_by_ns[ns] = list(config.fit_mom_by_ns.get(ns, [])) + [
-            rest_point_count + mom for mom in config.fit_mom_by_ns_MF.get(ns, [])
-        ]
-    return fit_mom_by_ns
+        Ns = ensemble_key[0]
+        rest_plot = plot_moms[Ns]["rest"]
+        fit_rest = config.scattering_Ns_mom.get(Ns, [])
+        rows = [rest_plot.index(m) for m in fit_rest]
+
+        if config.run_MF_analysis:
+            n_rest = len(rest_plot)
+            rows.extend(n_rest + i for i in config.scattering_Ns_mom_MF.get(Ns, []))
+        fit_row_by_Ns[Ns] = rows
+
+    return fit_row_by_Ns
 
 
 def run_scattering_fit(
-    config: Config, scattering_dict: dict, fit_mom_by_ns: dict[int, list[int]]
+    config: Config, scattering_dict: dict, fit_row_by_Ns: dict[int, list[int]]
 ) -> None:
     """Run the configured fit and store curves in ``scattering_dict``."""
     if config.scattering_fit_mode not in SCATTERING_FIT_MODES:
@@ -186,25 +198,25 @@ def run_scattering_fit(
             f"expected one of {SCATTERING_FIT_MODES}"
         )
 
-    ref_ns = next(iter(scattering_dict["s_array"]))
+    ref_Ns = next(iter(scattering_dict["s_array"]))
     if config.scattering_fit_mode == "Ks_linear":
-        _fit_Ks_linear(scattering_dict, fit_mom_by_ns, ref_ns)
+        _fit_Ks_linear(scattering_dict, fit_row_by_Ns, ref_Ns)
     else:
-        _fit_kcot_quadratic(scattering_dict, fit_mom_by_ns, ref_ns)
+        _fit_kcot_quadratic(scattering_dict, fit_row_by_Ns, ref_Ns)
 
 
 def _concat_fit_points(
-    scattering_dict: dict, fit_mom_by_ns: dict[int, list[int]], key: str
+    scattering_dict: dict, fit_row_by_Ns: dict[int, list[int]], key: str
 ) -> np.ndarray:
     return np.concatenate(
-        [scattering_dict[key][ns][moms] for ns, moms in fit_mom_by_ns.items()]
+        [scattering_dict[key][Ns][moms] for Ns, moms in fit_row_by_Ns.items()]
     )
 
 
 def _fit_gvar_model(
     scattering_dict: dict,
-    fit_mom_by_ns: dict[int, list[int]],
-    ref_ns: int,
+    fit_row_by_Ns: dict[int, list[int]],
+    ref_Ns: int,
     x_key: str,
     y_key: str,
     model,
@@ -213,27 +225,27 @@ def _fit_gvar_model(
     curve_y_key: str,
     label: str,
 ) -> None:
-    x_all = _concat_fit_points(scattering_dict, fit_mom_by_ns, x_key)
-    y_all = _concat_fit_points(scattering_dict, fit_mom_by_ns, y_key)
+    x_all = _concat_fit_points(scattering_dict, fit_row_by_Ns, x_key)
+    y_all = _concat_fit_points(scattering_dict, fit_row_by_Ns, y_key)
     fit_result = lsf.nonlinear_fit(
         data=(x_all[:, 0], gv.gvar(y_all[:, 0], y_all[:, 1])),
         fcn=model,
         prior=prior,
     )
     scattering_dict["fit_result"] = fit_result
-    scattering_dict[curve_y_key] = model(scattering_dict[curve_x_key][ref_ns], fit_result.p)
+    scattering_dict[curve_y_key] = model(scattering_dict[curve_x_key][ref_Ns], fit_result.p)
     print(label + ":", x_all[:, 0], gv.gvar(y_all[:, 0], y_all[:, 1]), fit_result)
 
 
 def _fit_Ks_linear(
     scattering_dict: dict,
-    fit_mom_by_ns: dict[int, list[int]],
-    ref_ns: int,
+    fit_row_by_Ns: dict[int, list[int]],
+    ref_Ns: int,
 ) -> None:
     _fit_gvar_model(
         scattering_dict,
-        fit_mom_by_ns,
-        ref_ns,
+        fit_row_by_Ns,
+        ref_Ns,
         x_key="s",
         y_key="Ks",
         model=MathModels.linear,
@@ -243,19 +255,19 @@ def _fit_Ks_linear(
         label="Ks fit",
     )
     scattering_dict["fit_kcot_curve"] = (
-        scattering_dict["sqrt_s_array"][ref_ns] / scattering_dict["fit_Ks_curve"]
+        scattering_dict["sqrt_s_array"][ref_Ns] / scattering_dict["fit_Ks_curve"]
     )
 
 
 def _fit_kcot_quadratic(
     scattering_dict: dict,
-    fit_mom_by_ns: dict[int, list[int]],
-    ref_ns: int,
+    fit_row_by_Ns: dict[int, list[int]],
+    ref_Ns: int,
 ) -> None:
     _fit_gvar_model(
         scattering_dict,
-        fit_mom_by_ns,
-        ref_ns,
+        fit_row_by_Ns,
+        ref_Ns,
         x_key="k_sq",
         y_key="kcot",
         model=MathModels.quadratic,
@@ -272,7 +284,7 @@ def _fit_kcot_quadratic(
 def run_scattering_analysis(
     config: Config, resampled_dict: ResampleDataDict
 ) -> dict | None:
-    if not (config.run_scattering and config.is_tetraquark_analysis):
+    if not config.run_scattering_analysis:
         return None
 
     q_sq_grid = q_sq_linspace(config.rest_zeta_n_q)
@@ -280,10 +292,14 @@ def run_scattering_analysis(
         q_sq_grid, lamda=config.rest_zeta_lamda, regen_flag=config.regen_rest_zeta
     )
     scattering_dict = defaultdict(dict)
+    ensemble_db = importlib.import_module(
+        f"input.input_{config.input_name}"
+    ).ENSEMBLE_DB
 
     for ensemble_key in config.scattering_list:
         _analyze_ensemble(
             config,
+            ensemble_db,
             resampled_dict,
             ensemble_key,
             q_sq_grid,
@@ -291,63 +307,90 @@ def run_scattering_analysis(
             scattering_dict,
         )
 
-    fit_mom_by_ns = fit_mom_indices(config, scattering_dict)
+    fit_row_by_Ns = fit_mom_indices(config, scattering_dict)
     scattering_dict["scattering_fit_mode"] = config.scattering_fit_mode
-    run_scattering_fit(config, scattering_dict, fit_mom_by_ns)
+    run_scattering_fit(config, scattering_dict, fit_row_by_Ns)
     return scattering_dict
 
 
 def _analyze_ensemble(
     config: Config,
+    ensemble_db: dict,
     resampled_dict: ResampleDataDict,
     ensemble_key,
     q_sq_grid: np.ndarray,
     zeta_00_rest: np.ndarray,
     scattering_dict: dict,
 ) -> None:
-    ch_meson_a = config.ch_meson_a
-    ch_meson_b = config.ch_meson_b
-    ch_tetra = config.ch_tetra
+    chans = scattering_chan_indices_for_ensemble(
+        ensemble_db,
+        ensemble_key,
+        config.scattering_chan,
+        config.scattering_chan_MF,
+    )
+    chan_meson_a, chan_meson_b = chans.meson_a, chans.meson_b
+    chan_tetra, chan_tetra_MF = chans.tetra, chans.tetra_mf
 
-    ksi_a = resampled_dict["ksi"][ensemble_key][ch_meson_a]
-    ksi_b = resampled_dict["ksi"][ensemble_key][ch_meson_b]
-    e0_meson_a = resampled_dict["meson"][ensemble_key][ch_meson_a, 0]
-    e0_meson_b = resampled_dict["meson"][ensemble_key][ch_meson_b, 0]
-    en_tetra = resampled_dict["tetraquark"][ensemble_key][ch_tetra]
+    ksi_a = resampled_dict["ksi"][ensemble_key][chan_meson_a]
+    ksi_b = resampled_dict["ksi"][ensemble_key][chan_meson_b]
+    e0_meson_a = resampled_dict["meson"][ensemble_key][chan_meson_a, 0]
+    e0_meson_b = resampled_dict["meson"][ensemble_key][chan_meson_b, 0]
+    en_tetra = resampled_dict["tetraquark"][ensemble_key][chan_tetra]
 
-    ns = ensemble_key[0]
-    lattice_size = ns * (ksi_a + ksi_b) / 2 / config.at_invs
+    Ns = ensemble_key[0]
+    lattice_size = Ns * (ksi_a + ksi_b) / 2 / config.at_invs
     _store_rest_reference_arrays(
-        scattering_dict, ns, q_sq_grid, zeta_00_rest, e0_meson_a, e0_meson_b, lattice_size
+        scattering_dict, Ns, q_sq_grid, zeta_00_rest, e0_meson_a, e0_meson_b, lattice_size
     )
 
-    if config.is_moving_frame:
+    plot_rest_moms = scattering_momenta_from_db(
+        ensemble_db, ensemble_key, config.scattering_chan
+    )
+    scattering_dict["plot_moms"][Ns] = {"rest": plot_rest_moms}
+
+    if config.run_MF_analysis:
+        MF_chan = config.scattering_chan_MF or config.scattering_chan
+        plot_MF_count = len(
+            scattering_momenta_from_db(ensemble_db, ensemble_key, MF_chan)
+        )
+        scattering_dict["plot_moms"][Ns]["MF"] = plot_MF_count
+
         mom_results = _analyze_rest_momenta(
-            en_tetra, range(en_tetra.shape[0]), e0_meson_a, e0_meson_b, lattice_size, q_sq_grid, zeta_00_rest
+            en_tetra,
+            plot_rest_moms,
+            e0_meson_a,
+            e0_meson_b,
+            lattice_size,
+            q_sq_grid,
+            zeta_00_rest,
         )
-        scattering_dict["rest_point_count"][ns] = en_tetra.shape[0]
-        en_tetra_mf = resampled_dict["tetraquark_MF"][ensemble_key][config.ch_tetra_MF]
-        mf_results, k_sq_mf_ref, kcot_mf_ref = _analyze_moving_frame_momenta(
-            config, ensemble_key, en_tetra_mf, e0_meson_a, e0_meson_b, lattice_size
+        en_tetra_MF = resampled_dict["tetraquark_MF"][ensemble_key][chan_tetra_MF]
+        MF_results, k_sq_MF_ref, kcot_MF_ref = _analyze_MF_momenta(
+            config, ensemble_key, en_tetra_MF, e0_meson_a, e0_meson_b, lattice_size
         )
-        scattering_dict["k_sq_array_MF"][ns] = k_sq_mf_ref
-        scattering_dict["kcot_array_MF"][ns] = kcot_mf_ref
-        mom_results.extend(mf_results)
+        scattering_dict["k_sq_array_MF"][Ns] = k_sq_MF_ref
+        scattering_dict["kcot_array_MF"][Ns] = kcot_MF_ref
+        mom_results.extend(MF_results[:plot_MF_count])
     else:
-        mom_list = config.chan_momt_list[ch_tetra]
         mom_results = _analyze_rest_momenta(
-            en_tetra, mom_list, e0_meson_a, e0_meson_b, lattice_size, q_sq_grid, zeta_00_rest
+            en_tetra,
+            plot_rest_moms,
+            e0_meson_a,
+            e0_meson_b,
+            lattice_size,
+            q_sq_grid,
+            zeta_00_rest,
         )
 
     for name in SCATTER_STAT_NAMES:
-        scattering_dict[name][ns] = np.array(
+        scattering_dict[name][Ns] = np.array(
             [get_resampler(config, result[name]).gvar() for result in mom_results]
         )
 
 
 def _store_rest_reference_arrays(
     scattering_dict: dict,
-    ns: int,
+    Ns: int,
     q_sq_grid: np.ndarray,
     zeta_00_rest: np.ndarray,
     e0_meson_a: np.ndarray,
@@ -358,10 +401,10 @@ def _store_rest_reference_arrays(
     sqrt_s_grid = np.sqrt(e0_meson_a.mean() ** 2 + k_sq_grid) + np.sqrt(
         e0_meson_b.mean() ** 2 + k_sq_grid
     )
-    scattering_dict["sqrt_s_array"][ns] = sqrt_s_grid
-    scattering_dict["s_array"][ns] = sqrt_s_grid**2
-    scattering_dict["k_sq_array"][ns] = k_sq_grid
-    scattering_dict["kcot_rest_array"][ns] = (
+    scattering_dict["sqrt_s_array"][Ns] = sqrt_s_grid
+    scattering_dict["s_array"][Ns] = sqrt_s_grid**2
+    scattering_dict["k_sq_array"][Ns] = k_sq_grid
+    scattering_dict["kcot_rest_array"][Ns] = (
         zeta_00_rest * _KCOT_PREFACTOR / lattice_size.mean()
     )
 
@@ -399,39 +442,39 @@ def _analyze_rest_momentum(
     return {"Ks": sqrt_s / kcot, "s": sqrt_s**2, "sqrt_s": sqrt_s, "k_sq": k_sq, "kcot": kcot}
 
 
-def _analyze_moving_frame_momenta(
+def _analyze_MF_momenta(
     config: Config,
     ensemble_key,
-    en_tetra_mf: np.ndarray,
+    en_tetra_MF: np.ndarray,
     e0_meson_a: np.ndarray,
     e0_meson_b: np.ndarray,
     lattice_size: np.ndarray,
 ) -> tuple[list[dict], np.ndarray, np.ndarray]:
-    d_vec = np.array(config.moving_frame_d_vec, dtype=float)
-    lamda = config.moving_frame_zeta_lamda
-    k_sq_ref, kcot_ref = _load_or_build_moving_frame_reference(
-        config, ensemble_key, en_tetra_mf[0], e0_meson_a, e0_meson_b, lattice_size, d_vec, lamda
+    d_vec = np.array(config.MF_d_vec, dtype=float)
+    lamda = config.MF_zeta_lamda
+    k_sq_ref, kcot_ref = _load_or_build_MF_reference(
+        config, ensemble_key, en_tetra_MF[0], e0_meson_a, e0_meson_b, lattice_size, d_vec, lamda
     )
 
     scatter_path = mf_scatter_path(config, ensemble_key)
-    if not config.regen_moving_frame_scattering:
+    if not config.regen_MF_scattering:
         cached = load_mf_scatter_all(scatter_path)
         if cached is not None:
             print(f"Loading {scatter_path}")
             return cached, k_sq_ref, kcot_ref
 
     results = [
-        _analyze_moving_frame_momentum(
+        _analyze_MF_momentum(
             en_tetra, e0_meson_a, e0_meson_b, lattice_size, d_vec, lamda
         )
-        for en_tetra in en_tetra_mf
+        for en_tetra in en_tetra_MF
     ]
     save_mf_scatter_all(scatter_path, results)
     print(f"Saved {scatter_path}")
     return results, k_sq_ref, kcot_ref
 
 
-def _load_or_build_moving_frame_reference(
+def _load_or_build_MF_reference(
     config: Config,
     ensemble_key,
     en_tetra_gs: np.ndarray,
@@ -442,27 +485,27 @@ def _load_or_build_moving_frame_reference(
     lamda: int,
 ) -> tuple[np.ndarray, np.ndarray]:
     ref_path = mf_scatter_ref_path(config, ensemble_key)
-    if not config.regen_moving_frame_scattering:
+    if not config.regen_MF_scattering:
         cached_ref = load_mf_scatter_ref(ref_path)
         if cached_ref is not None:
             print(f"Loading {ref_path}")
             return cached_ref
 
-    q_sq_grid = q_sq_linspace(config.moving_frame_zeta_n_q)
-    lattice_size_mean, gamma_mean, alpha_mean = _moving_frame_mean_params_ground_state(
+    q_sq_grid = q_sq_linspace(config.MF_zeta_n_q)
+    lattice_size_mean, gamma_mean, alpha_mean = _MF_mean_params_ground_state(
         en_tetra_gs, e0_meson_a, e0_meson_b, lattice_size, d_vec
     )
-    zeta_00_moving = gen_zeta_00_moving_from_q_sq_array(
+    zeta_00_MF = gen_zeta_00_MF_from_q_sq_array(
         q_sq_grid, config, ensemble_key, d_vec, lamda, gamma_mean, alpha_mean
     )
     k_sq_ref = q_sq_grid * (_TWO_PI / lattice_size_mean) ** 2
-    kcot_ref = zeta_00_moving * _KCOT_PREFACTOR / lattice_size_mean / gamma_mean
+    kcot_ref = zeta_00_MF * _KCOT_PREFACTOR / lattice_size_mean / gamma_mean
     save_mf_scatter_ref(ref_path, k_sq_ref, kcot_ref)
     print(f"Saved {ref_path}")
     return k_sq_ref, kcot_ref
 
 
-def _analyze_moving_frame_momentum(
+def _analyze_MF_momentum(
     en_tetra: np.ndarray,
     e0_meson_a: np.ndarray,
     e0_meson_b: np.ndarray,
@@ -483,7 +526,7 @@ def _analyze_moving_frame_momentum(
             (e0_meson_a[sample_idx] ** 2 - e0_meson_b[sample_idx] ** 2) / e_cm_sq
         )
 
-        n_vec_array = build_moving_frame_n_vec_array(lamda, d_vec, alpha, gamma)
+        n_vec_array = build_MF_n_vec_array(lamda, d_vec, alpha, gamma)
         r_sq_array = build_r_sq_from_n_vec(n_vec_array, d_vec, alpha, gamma)
         r_sq_array = r_sq_array[r_sq_array <= lamda**2]
 
@@ -492,7 +535,7 @@ def _analyze_moving_frame_momentum(
             / (4.0 * e_cm_sq)
         )
         q_sq = k_sq[sample_idx] * (lattice_size[sample_idx] / _TWO_PI) ** 2
-        zeta_00 = gen_zeta_00_moving_from_q_sq(r_sq_array, q_sq, lamda)
+        zeta_00 = gen_zeta_00_MF_from_q_sq(r_sq_array, q_sq, lamda)
         kcot[sample_idx] = _KCOT_PREFACTOR * zeta_00 / lattice_size[sample_idx] / gamma
         sqrt_s[sample_idx] = np.sqrt(e0_meson_a[sample_idx] ** 2 + k_sq[sample_idx]) + np.sqrt(
             e0_meson_b[sample_idx] ** 2 + k_sq[sample_idx]
@@ -501,7 +544,7 @@ def _analyze_moving_frame_momentum(
     return {"Ks": sqrt_s / kcot, "s": sqrt_s**2, "sqrt_s": sqrt_s, "k_sq": k_sq, "kcot": kcot}
 
 
-def _moving_frame_mean_params_ground_state(
+def _MF_mean_params_ground_state(
     en_tetra_gs: np.ndarray,
     e0_meson_a: np.ndarray,
     e0_meson_b: np.ndarray,
@@ -515,7 +558,7 @@ def _moving_frame_mean_params_ground_state(
     total_momentum_sq = float(np.sum((_TWO_PI * d_vec / lattice_size_mean) ** 2))
     e_cm_sq = en_mean**2 - total_momentum_sq
     if e_cm_sq <= 0:
-        raise ValueError(f"Non-positive E_cm^2 for moving-frame ground state: {e_cm_sq}")
+        raise ValueError(f"Non-positive E_cm^2 for MF ground state: {e_cm_sq}")
 
     gamma = en_mean / np.sqrt(e_cm_sq)
     alpha = 1.0 + (m_a**2 - m_b**2) / e_cm_sq

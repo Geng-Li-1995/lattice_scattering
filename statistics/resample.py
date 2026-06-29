@@ -1,9 +1,9 @@
 import numpy as np
 import gvar as gv
-from pathlib import Path
 
 from analysis.fit_mass import RunFitting, en_fit_lookup, fit_dispersion, ksi_from_disp_fit
 from analysis.gevp import process_GEVP
+from data.io import save_resample_en, save_resample_ksi_meson
 from data.correlators import RawCorrelators
 from input.config import Config
 from statistics.bootstrap import Bootstrap
@@ -16,6 +16,19 @@ def get_resampler(config: Config, data: np.ndarray) -> Jackknife | Bootstrap:
     if config.resample_type == "bootstrap":
         return Bootstrap(data, axis=config.sample_axis, nboot=config.n_boot)
     raise ValueError(f"Unknown resample_type: {config.resample_type}")
+
+
+def jackknife_gvar(config: Config, data: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Mean and jackknife error along ``sample_axis`` (same as ``plot_En`` data points)."""
+    return get_resampler(config, data).gvar()
+
+
+def jackknife_map_gvar(
+    config: Config, data: np.ndarray, transform
+) -> tuple[np.ndarray, np.ndarray]:
+    """Resample → ``transform(jackknife_samples)`` → jackknife mean/error."""
+    mapped = transform(get_resampler(config, data).resample())
+    return get_resampler(config, mapped).gvar()
 
 
 def _resample_arrays(
@@ -42,14 +55,14 @@ def _resample_arrays(
 
 def run_resample_statistics(config: Config, raw: RawCorrelators) -> None:
     sample_axis = config.sample_axis
-    chan_momt_list = config.chan_momt_list
+    chan_momentum_list = config.chan_momentum_list
     at_invs = config.at_invs
-    ns = config.ensemble_key[0]
-    analysis_corr_type = "tetraquark" if config.is_tetraquark_analysis else "meson"
+    Ns = config.ensemble_key[0]
+    analysis_corr_type = "tetraquark" if config.run_tetraquark_analysis else "meson"
 
     arrays = raw.array_items()
-    n_chan = len(chan_momt_list)
-    mom_max = max((max(moms) for moms in chan_momt_list if moms), default=-1) + 1
+    n_chan = len(chan_momentum_list)
+    mom_max = max((max(moms) for moms in chan_momentum_list if moms), default=-1) + 1
 
     n_samples = {arr.shape[sample_axis] for arr in arrays.values()}
     if len(n_samples) != 1:
@@ -58,7 +71,7 @@ def run_resample_statistics(config: Config, raw: RawCorrelators) -> None:
 
     n_iterations = config.n_boot if config.resample_type == "bootstrap" else n_sample
     en_samples = np.zeros((n_chan, mom_max, n_iterations))
-    ksi_samples = np.zeros((n_chan, n_iterations)) if config.is_meson_analysis else None
+    ksi_samples = np.zeros((n_chan, n_iterations)) if config.run_meson_analysis else None
 
     fitter = RunFitting(config)
     rng = np.random.default_rng()
@@ -69,21 +82,21 @@ def run_resample_statistics(config: Config, raw: RawCorrelators) -> None:
         corr_jk, _ = process_GEVP(config, raw_jk)
         fit_lookup = en_fit_lookup(fitter.effective_mass(corr_jk))
 
-        for ch_idx, mom_list in enumerate(chan_momt_list):
+        for chan_idx, mom_list in enumerate(chan_momentum_list):
             en_sq_list = []
             for mom in mom_list:
-                mass_fit = fit_lookup.get((ch_idx, mom))
+                mass_fit = fit_lookup.get((chan_idx, mom))
                 if mass_fit is None:
-                    raise ValueError(f"Missing fit: ch_idx={ch_idx}, mom={mom}")
+                    raise ValueError(f"Missing fit: chan_idx={chan_idx}, mom={mom}")
 
                 en = mass_fit.p["meff_0"] * at_invs
                 en_sq_list.append(en * en)
-                en_samples[ch_idx, mom, sample_idx] = gv.mean(en)
+                en_samples[chan_idx, mom, sample_idx] = gv.mean(en)
 
-            if config.is_meson_analysis:
+            if config.run_meson_analysis:
                 disp_fit = fit_dispersion(mom_list, en_sq_list)
-                ksi_samples[ch_idx, sample_idx] = gv.mean(
-                    ksi_from_disp_fit(disp_fit, at_invs, ns)
+                ksi_samples[chan_idx, sample_idx] = gv.mean(
+                    ksi_from_disp_fit(disp_fit, at_invs, Ns)
                 )
 
         print(
@@ -92,8 +105,10 @@ def run_resample_statistics(config: Config, raw: RawCorrelators) -> None:
             f"\nEn:\n{en_samples[:, :, sample_idx]}",
         )
 
-    out_dir = Path(f"data/{config.input_name}/resampled")
-    out_dir.mkdir(parents=True, exist_ok=True)
-    np.save(out_dir / f"resample_En_{analysis_corr_type}_{config.tag_name}.npy", en_samples)
-    if config.is_meson_analysis:
-        np.save(out_dir / f"resample_ksi_{analysis_corr_type}_{config.tag_name}.npy", ksi_samples)
+    en_path = save_resample_en(
+        config, analysis_corr_type, config.ensemble_key, en_samples
+    )
+    print(f"Wrote {en_path}")
+    if config.run_meson_analysis:
+        ksi_path = save_resample_ksi_meson(config, config.ensemble_key, ksi_samples)
+        print(f"Wrote {ksi_path}")
