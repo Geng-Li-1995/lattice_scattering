@@ -57,69 +57,44 @@ Meson correlators are **4D**; tetraquark raw data dominates memory. After GEVP b
 
 ## Architecture
 
-### Layered pipeline
+### Module layers
 
-```mermaid
-flowchart TB
-    subgraph input["Configuration"]
-        IC["input/input_*.py<br/>InputControl switches"]
-        DB["ENSEMBLE_DB<br/>channels · priors · t_min"]
-        BC["BuildConfig → Config"]
-    end
+| Layer | Package | Responsibility |
+|-------|---------|----------------|
+| **Configuration** | `input/` | `InputControl` switches, `ENSEMBLE_DB`, `BuildConfig` → `Config` |
+| **Data** | `data/` | Typed correlators (`Correlator4D` / 6D tetraquark), `io.py` path helpers, `raw/` & `resampled/` |
+| **Analysis** | `analysis/` | GEVP · effective mass · t_min & ratio · Lüscher scattering · `models.py` registry |
+| **Statistics** | `statistics/` | Jackknife / bootstrap, `run_resample_statistics` → per-replica energies |
+| **Plotting** | `plotting/` | Shared `plot_set.py` style; GEVP, \(E_n\), ratio, t_min, scattering figures |
 
-    subgraph data["data/"]
-        RAW["raw/*.npy<br/>4D meson · 6D tetraquark"]
-        IO["io.py · correlators.py"]
-        RES["resampled/*.npy<br/>En, ξ per jackknife"]
-    end
-
-    subgraph analysis["analysis/"]
-        GEVP["gevp.py<br/>FVE matrix · GEVP · rotation"]
-        MASS["fit_mass.py<br/>2/3-state cosh · Z_n · dispersion"]
-        TMIN["fit_tmin.py<br/>t_min scan · ratio fits"]
-        SCAT["scattering.py<br/>Lüscher K(s) · k cot δ₀"]
-        MOD["models.py<br/>MODEL_REGISTRY"]
-    end
-
-    subgraph stats["statistics/"]
-        JK["jackknife / bootstrap"]
-        RS["resample.py"]
-    end
-
-    subgraph plot["plotting/"]
-        PS["plot_set.py"]
-        OUT["result/*.png|pdf"]
-    end
-
-    IC --> BC
-    DB --> BC
-    BC --> IO
-    RAW --> IO
-    IO --> GEVP
-    GEVP --> MASS
-    MASS --> TMIN
-    IO --> RS
-    RS --> RES
-    RES --> SCAT
-    GEVP --> PS
-    MASS --> PS
-    TMIN --> PS
-    SCAT --> PS
-    PS --> OUT
-    JK --> RS
-    MOD --> MASS
-    MOD --> TMIN
-    MOD --> SCAT
-```
-
-### Execution order (`main.py`)
+### Pipeline (`main.py`)
 
 ```
-BuildConfig → Config
-    ├─ [optional] run_resample_statistics()  →  resampled/*.npy
-    ├─ meson branch:    En, Z_n, dispersion, t_min
-    └─ tetraquark branch: GEVP → En → ratio → t_min
-         └─ scattering (from resampled/, no raw reload)
+data/<system>/raw/*.npy  [chan, mom, time, sample=401]
+        │
+        ▼
+input/input_<System>.py  →  BuildConfig  →  Config
+        │
+        ├─ [optional] statistics/resample.py     →  data/<system>/resampled/*.npy
+        │
+        ├─ meson branch
+        │     analysis/fit_mass.py             →  En, Z_n, dispersion
+        │     plotting/plot_mass.py            →  En_*, Zn, Dispersion
+        │     plotting/plot_tmin.py            →  En_tmin_meson*  (if enabled)
+        │
+        ├─ tetraquark branch
+        │     analysis/gevp.py                 →  4D correlators
+        │     analysis/fit_mass.py             →  En, Z_n
+        │     plotting/plot_gevp.py            →  GEVP_*
+        │     plotting/plot_ratio.py           →  Ratio_*  (if enabled)
+        │     plotting/plot_tmin.py            →  En_tmin_tetraquark*  (if enabled)
+        │
+        └─ scattering (from resampled/, no raw reload)
+              analysis/scattering.py           →  K(s), k cot δ₀
+              plotting/plot_scattering.py      →  K_s_scattering, kcot_scattering
+        │
+        ▼
+result/<system>/*.{png,pdf}
 ```
 
 Meson and tetraquark switches are **independent**. Ratio / t_min on tetraquark loads meson raw correlators when `run_ratio_analysis=True`.

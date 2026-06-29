@@ -168,23 +168,30 @@ def test_fit_ratio_reference_identical_meson():
     assert float(gv.mean(ref.total_energy)) > 0
 
 
-def test_ratio_series_mean_err_matches_cosh_workflow():
-    """Ratio data errors use LOO correlators → R(t) → jackknife, like plot_En."""
-    config = BuildConfig("Tcccc6600").build_config_from_control("tetraquark")
-    from data.io import read_raw_files
-    from analysis.gevp import process_GEVP
-    from plotting.plot_mass import MassPlotter
+def test_ratio_series_mean_err_matches_cosh_workflow(rng):
+    """Ratio errors use LOO correlators → R(t) → jackknife, same path as plot_En cosh."""
+    from analysis.models import MathModels
+    from statistics.resample import jackknife_map_gvar
 
-    raw = read_raw_files(config)
-    corr, _ = process_GEVP(config, raw)
-    tetra_1d = corr.tetraquark.at(1, 0)
-    meson_1d = corr.meson.at(1, 0)
+    config = BuildConfig("Tcccc6600").build_config_from_control("tetraquark")
+    nt = config.lattice_Nt
+    n_sample = 20
+    meson = np.exp(-0.42 * np.arange(nt)[:, None]) * (
+        1 + 0.01 * rng.standard_normal((nt, n_sample))
+    )
+    tetra = np.exp(-0.86 * np.arange(nt)[:, None]) * (
+        1 + 0.01 * rng.standard_normal((nt, n_sample))
+    )
     t = 30
 
     mean_r, err_r = ratio_series_mean_err(
-        config, tetra_1d, meson_1d, meson_1d, is_ratio_shift=True
+        config, tetra, meson, meson, is_ratio_shift=True
     )
-    m_en, e_en = MassPlotter(config)._cosh_with_error(tetra_1d)
+    m_en, e_en = jackknife_map_gvar(
+        config,
+        tetra,
+        lambda jack: MathModels.generate_cosh_from_data(jack, time_axis=0),
+    )
 
     rel_r = err_r[t] / abs(mean_r[t])
     rel_en = e_en[t] / m_en[t]
