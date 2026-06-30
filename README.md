@@ -315,10 +315,16 @@ Shifted-ratio series \(\Delta C_4/\Delta C_2^2\) (data) and reference-window fit
 
 ### Scattering (\(L=12+16\))
 
+Left: \(K(s)=\sqrt{s}/(k\cot\delta_0)\) vs. invariant mass squared \(s\); right: \(k\cot\delta_0\) vs. \(k^2\) (dashed \(ik\) guide below threshold). Points combine rest and moving frames on \(L=12\) and \(L=16\); bands show jackknife uncertainty on the fitted curves.
+
+In the Lüscher quantization condition, **zeros of \(K(s)\) are poles of the S-matrix** — bound states or resonances in the \(J/\psi\,J/\psi\) S-wave channel. A zero near \(s\simeq(6.6\,\mathrm{GeV})^2\) is not a kinematic artifact of two free charmonia passing through threshold; it marks an **interacting state whose internal structure goes beyond meson–meson factorization**. Together with the GEVP spectrum above, such a pole supports a **genuinely new fully-charm tetraquark configuration** (\(cc\bar{c}\bar{c}\)): a compact multiquark degree of freedom distinct from the non-interacting \(J/\psi\,J/\psi\) continuum. This is precisely what collider experiments search for in double-\(J/\psi\) production — narrow or broad enhancements such as **\(X(6600)\)** — where a pole/zero in \(K(s)\) translates into an excess above the smooth two-body background. On the \(k\cot\delta_0\) panel, a sub-threshold bound state appears as the curve meeting the \(ik\) branch; agreement between \(L=12\) and \(L=16\) constrains whether the feature is a stable bound state or a finite-volume resonance.
+
 <p align="center">
   <img src="result/Tcccc6600/K_s_scattering.png" alt="K(s)" width="48%" />
   <img src="result/Tcccc6600/kcot_scattering.png" alt="k cot delta" width="48%" />
 </p>
+
+<p align="center"><sub><code>K_s_scattering</code> · <code>kcot_scattering</code> — \(J/\psi\,J/\psi\) scattering, combined \(L=12\) + \(L=16\)</sub></p>
 
 ---
 
