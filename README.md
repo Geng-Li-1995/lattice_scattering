@@ -258,7 +258,7 @@ Fully-charm tetraquarks \(T_{cc\bar{c}\bar{c}}\) are exotic-hadron candidates at
 
 \(L=12\) (`L12M420_EV170`) unless noted; \(t_{\min}\) scans on \(L=16\) (`L16M420_EV120`).
 
-### GEVP
+### Generalized eigenvalue problem (GEVP)
 
 Generalized eigenvalue problem on the tetraquark FVE matrix \(C_{\alpha\beta}(t)\) (\(t_0=15\), \(t_1=25\), plot at \(t_\mathrm{sort}=20\) for \(L=12\)). **Before:** strong operator mixing between \(\eta_c\eta_c\) and \(J/\psi\,J/\psi\) blocks. **After:** near-diagonal matrix — optimized levels for 3-state fits. **Eigenvector:** composition of each GEVP level in the original operator basis.
 
