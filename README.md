@@ -16,11 +16,11 @@ Production-grade lattice QCD pipeline for **tetraquark spectroscopy** and **fini
 ## Contents
 
 1. [Technical overview](#technical-overview)
-2. [Architecture](#architecture)
-3. [Analysis capabilities](#analysis-capabilities)
-4. [Software engineering](#software-engineering)
-5. [Physics (Tcccc6600)](#physics-tcccc6600)
-6. [Example results](#example-results)
+2. [Physics (Tcccc6600)](#physics-tcccc6600)
+3. [Example results](#example-results)
+4. [Architecture](#architecture)
+5. [Analysis capabilities](#analysis-capabilities)
+6. [Software engineering](#software-engineering)
 7. [Data contract](#data-contract)
 8. [Quick start](#quick-start)
 9. [Configuration](#configuration)
@@ -52,6 +52,90 @@ This repository implements a **modular, switch-driven** analysis chain used in l
 Meson correlators are **4D**; tetraquark raw data dominates memory. After GEVP both branches collapse to 4D for fitting.
 
 **Stack:** Python 3.10+ · NumPy · SciPy · gvar · lsqfit · joblib · Matplotlib · pytest
+
+---
+
+## Physics (Tcccc6600)
+
+Fully-charm tetraquarks \(T_{cc\bar{c}\bar{c}}\) are exotic-hadron candidates at the LHC. This analysis chain targets \(\eta_c\eta_c\) and \(J/\psi\,J/\psi\) scattering and comparison with LHC data.
+
+**Key result:** a **\(2^{++}\)** candidate in \(J/\psi\,J/\psi\) near **6.6 GeV**, compatible with **\(X(6600)\)** ([Nature **648**, 58 (2025)](https://www.nature.com/articles/s41586-025-09278-2); [arXiv:2506.07944](https://arxiv.org/abs/2506.07944)), with separate **\(0^{++}\)** and **\(2^{++}\)** amplitudes from one GEVP spectrum.
+
+**Scattering observables:** \(K(s)\) vs \(s=m_{\rm CM}^2\) encodes S-wave interaction strength; \(k\cot\delta_0\) gives the phase shift \(\delta_0\). **Zeros of \(K(s)\) are S-matrix poles** — resonance or bound-state positions to compare with experimental enhancements such as \(X(6600)\) in double-\(J/\psi\) production.
+
+---
+
+## Example results
+
+\(L=12\) (`L12M420_EV170`) unless noted; \(t_{\min}\) scans on \(L=16\) (`L16M420_EV120`).
+
+### Generalized eigenvalue problem (GEVP)
+
+Generalized eigenvalue problem on the tetraquark FVE matrix \(C_{\alpha\beta}(t)\) (\(t_0=15\), \(t_1=25\), plot at \(t_\mathrm{sort}=20\) for \(L=12\)). **Before:** strong operator mixing between \(\eta_c\eta_c\) and \(J/\psi\,J/\psi\) blocks. **After:** near-diagonal matrix — optimized levels for 3-state fits. **Eigenvector:** composition of each GEVP level in the original operator basis.
+
+<p align="center">
+  <img src="result/Tcccc6600/GEVP_before_L12M420_EV170.png" alt="GEVP matrix before diagonalization" width="48%" />
+  <img src="result/Tcccc6600/GEVP_after_L12M420_EV170.png" alt="GEVP matrix after diagonalization" width="48%" />
+</p>
+
+<p align="center"><sub><code>GEVP_before_L12M420_EV170</code> · <code>GEVP_after_L12M420_EV170</code> — normalized \(C_{\alpha\beta}(t/a_t=20)\), snk/src = FVE operators</sub></p>
+
+Eigenvectors \(v_\beta^{(n)}\) (eigenlevel \(n\), component \(\beta\)):
+
+<p align="center">
+  <img src="result/Tcccc6600/GEVP_eigenvector_L12M420_EV170.png" alt="GEVP eigenvector" width="48%" />
+</p>
+
+<p align="center"><sub><code>GEVP_eigenvector_L12M420_EV170</code></sub></p>
+
+### Effective mass \(E_n\)
+
+<p align="center">
+  <img src="result/Tcccc6600/En_meson_L12M420_EV170.png" alt="Meson En" width="48%" />
+  <img src="result/Tcccc6600/En_tetraquark_L12M420_EV170.png" alt="Tetraquark En" width="48%" />
+</p>
+
+### Ratio \(R_n(t/a_t)\)
+
+Shifted-ratio series \(\Delta C_4/\Delta C_2^2\) (data) and reference-window fit (band + curve). **Left:** \(L=12\); **right:** \(L=16\).
+
+<p align="center">
+  <img src="result/Tcccc6600/Ratio_L12M420_EV170.png" alt="Ratio L12" width="48%" />
+  <img src="result/Tcccc6600/Ratio_L16M420_EV120.png" alt="Ratio L16" width="48%" />
+</p>
+
+<p align="center"><sub><code>Ratio_L12M420_EV170</code> · <code>Ratio_L16M420_EV120</code></sub></p>
+
+### \(t_{\min}\) scan — meson
+
+2-state ○ + Combine. \(\eta_c\) / \(J/\psi\), \(n^2=0\), \(L=16\).
+
+<p align="center">
+  <img src="result/Tcccc6600/En_tmin_meson0_mom0_L16M420_EV120.png" alt="meson tmin eta_c" width="48%" />
+  <img src="result/Tcccc6600/En_tmin_meson1_mom0_L16M420_EV120.png" alt="meson tmin J/psi" width="48%" />
+</p>
+
+### \(t_{\min}\) scan — tetraquark (\(J/\psi\,J/\psi\), \(n^2=0,1\))
+
+3-state ○, ratio ×, Combine.
+
+<p align="center">
+  <img src="result/Tcccc6600/En_tmin_tetraquark1_mom0_L16M420_EV120.png" alt="tetra tmin mom0" width="48%" />
+  <img src="result/Tcccc6600/En_tmin_tetraquark1_mom1_L16M420_EV120.png" alt="tetra tmin mom1" width="48%" />
+</p>
+
+### Scattering (\(L=12+16\))
+
+Left: \(K(s)=\sqrt{s}/(k\cot\delta_0)\) vs. invariant mass squared \(s\); right: \(k\cot\delta_0\) vs. \(k^2\) (dashed \(ik\) guide below threshold). Points combine rest and moving frames on \(L=12\) and \(L=16\); bands show jackknife uncertainty on the fitted curves.
+
+In the Lüscher quantization condition, **zeros of \(K(s)\) are poles of the S-matrix** — bound states or resonances in the \(J/\psi\,J/\psi\) S-wave channel. A zero near \(s\simeq(6.6\,\mathrm{GeV})^2\) is not a kinematic artifact of two free charmonia passing through threshold; it marks an **interacting state whose internal structure goes beyond meson–meson factorization**. Together with the GEVP spectrum above, such a pole supports a **genuinely new fully-charm tetraquark configuration** (\(cc\bar{c}\bar{c}\)): a compact multiquark degree of freedom distinct from the non-interacting \(J/\psi\,J/\psi\) continuum. This is precisely what collider experiments search for in double-\(J/\psi\) production — narrow or broad enhancements such as **\(X(6600)\)** — where a pole/zero in \(K(s)\) translates into an excess above the smooth two-body background. On the \(k\cot\delta_0\) panel, a sub-threshold bound state appears as the curve meeting the \(ik\) branch; agreement between \(L=12\) and \(L=16\) constrains whether the feature is a stable bound state or a finite-volume resonance.
+
+<p align="center">
+  <img src="result/Tcccc6600/K_s_scattering.png" alt="K(s)" width="48%" />
+  <img src="result/Tcccc6600/kcot_scattering.png" alt="k cot delta" width="48%" />
+</p>
+
+<p align="center"><sub><code>K_s_scattering</code> · <code>kcot_scattering</code> — \(J/\psi\,J/\psi\) scattering, combined \(L=12\) + \(L=16\)</sub></p>
 
 ---
 
@@ -241,90 +325,6 @@ lattice_scattering/
 ├── docs/           RUNNING · TESTING · DEPENDENCIES
 └── tests/          ~19 consolidated unit tests (synthetic data only)
 ```
-
----
-
-## Physics (Tcccc6600)
-
-Fully-charm tetraquarks \(T_{cc\bar{c}\bar{c}}\) are exotic-hadron candidates at the LHC. This analysis chain targets \(\eta_c\eta_c\) and \(J/\psi\,J/\psi\) scattering and comparison with LHC data.
-
-**Key result:** a **\(2^{++}\)** candidate in \(J/\psi\,J/\psi\) near **6.6 GeV**, compatible with **\(X(6600)\)** ([Nature **648**, 58 (2025)](https://www.nature.com/articles/s41586-025-09278-2); [arXiv:2506.07944](https://arxiv.org/abs/2506.07944)), with separate **\(0^{++}\)** and **\(2^{++}\)** amplitudes from one GEVP spectrum.
-
-**Scattering observables:** \(K(s)\) vs \(s=m_{\rm CM}^2\) encodes S-wave interaction strength; \(k\cot\delta_0\) gives the phase shift \(\delta_0\). **Zeros of \(K(s)\) are S-matrix poles** — resonance or bound-state positions to compare with experimental enhancements such as \(X(6600)\) in double-\(J/\psi\) production.
-
----
-
-## Example results
-
-\(L=12\) (`L12M420_EV170`) unless noted; \(t_{\min}\) scans on \(L=16\) (`L16M420_EV120`).
-
-### Generalized eigenvalue problem (GEVP)
-
-Generalized eigenvalue problem on the tetraquark FVE matrix \(C_{\alpha\beta}(t)\) (\(t_0=15\), \(t_1=25\), plot at \(t_\mathrm{sort}=20\) for \(L=12\)). **Before:** strong operator mixing between \(\eta_c\eta_c\) and \(J/\psi\,J/\psi\) blocks. **After:** near-diagonal matrix — optimized levels for 3-state fits. **Eigenvector:** composition of each GEVP level in the original operator basis.
-
-<p align="center">
-  <img src="result/Tcccc6600/GEVP_before_L12M420_EV170.png" alt="GEVP matrix before diagonalization" width="48%" />
-  <img src="result/Tcccc6600/GEVP_after_L12M420_EV170.png" alt="GEVP matrix after diagonalization" width="48%" />
-</p>
-
-<p align="center"><sub><code>GEVP_before_L12M420_EV170</code> · <code>GEVP_after_L12M420_EV170</code> — normalized \(C_{\alpha\beta}(t/a_t=20)\), snk/src = FVE operators</sub></p>
-
-Eigenvectors \(v_\beta^{(n)}\) (eigenlevel \(n\), component \(\beta\)):
-
-<p align="center">
-  <img src="result/Tcccc6600/GEVP_eigenvector_L12M420_EV170.png" alt="GEVP eigenvector" width="48%" />
-</p>
-
-<p align="center"><sub><code>GEVP_eigenvector_L12M420_EV170</code></sub></p>
-
-### Effective mass \(E_n\)
-
-<p align="center">
-  <img src="result/Tcccc6600/En_meson_L12M420_EV170.png" alt="Meson En" width="48%" />
-  <img src="result/Tcccc6600/En_tetraquark_L12M420_EV170.png" alt="Tetraquark En" width="48%" />
-</p>
-
-### Ratio \(R_n(t/a_t)\)
-
-Shifted-ratio series \(\Delta C_4/\Delta C_2^2\) (data) and reference-window fit (band + curve). **Left:** \(L=12\); **right:** \(L=16\).
-
-<p align="center">
-  <img src="result/Tcccc6600/Ratio_L12M420_EV170.png" alt="Ratio L12" width="48%" />
-  <img src="result/Tcccc6600/Ratio_L16M420_EV120.png" alt="Ratio L16" width="48%" />
-</p>
-
-<p align="center"><sub><code>Ratio_L12M420_EV170</code> · <code>Ratio_L16M420_EV120</code></sub></p>
-
-### \(t_{\min}\) scan — meson
-
-2-state ○ + Combine. \(\eta_c\) / \(J/\psi\), \(n^2=0\), \(L=16\).
-
-<p align="center">
-  <img src="result/Tcccc6600/En_tmin_meson0_mom0_L16M420_EV120.png" alt="meson tmin eta_c" width="48%" />
-  <img src="result/Tcccc6600/En_tmin_meson1_mom0_L16M420_EV120.png" alt="meson tmin J/psi" width="48%" />
-</p>
-
-### \(t_{\min}\) scan — tetraquark (\(J/\psi\,J/\psi\), \(n^2=0,1\))
-
-3-state ○, ratio ×, Combine.
-
-<p align="center">
-  <img src="result/Tcccc6600/En_tmin_tetraquark1_mom0_L16M420_EV120.png" alt="tetra tmin mom0" width="48%" />
-  <img src="result/Tcccc6600/En_tmin_tetraquark1_mom1_L16M420_EV120.png" alt="tetra tmin mom1" width="48%" />
-</p>
-
-### Scattering (\(L=12+16\))
-
-Left: \(K(s)=\sqrt{s}/(k\cot\delta_0)\) vs. invariant mass squared \(s\); right: \(k\cot\delta_0\) vs. \(k^2\) (dashed \(ik\) guide below threshold). Points combine rest and moving frames on \(L=12\) and \(L=16\); bands show jackknife uncertainty on the fitted curves.
-
-In the Lüscher quantization condition, **zeros of \(K(s)\) are poles of the S-matrix** — bound states or resonances in the \(J/\psi\,J/\psi\) S-wave channel. A zero near \(s\simeq(6.6\,\mathrm{GeV})^2\) is not a kinematic artifact of two free charmonia passing through threshold; it marks an **interacting state whose internal structure goes beyond meson–meson factorization**. Together with the GEVP spectrum above, such a pole supports a **genuinely new fully-charm tetraquark configuration** (\(cc\bar{c}\bar{c}\)): a compact multiquark degree of freedom distinct from the non-interacting \(J/\psi\,J/\psi\) continuum. This is precisely what collider experiments search for in double-\(J/\psi\) production — narrow or broad enhancements such as **\(X(6600)\)** — where a pole/zero in \(K(s)\) translates into an excess above the smooth two-body background. On the \(k\cot\delta_0\) panel, a sub-threshold bound state appears as the curve meeting the \(ik\) branch; agreement between \(L=12\) and \(L=16\) constrains whether the feature is a stable bound state or a finite-volume resonance.
-
-<p align="center">
-  <img src="result/Tcccc6600/K_s_scattering.png" alt="K(s)" width="48%" />
-  <img src="result/Tcccc6600/kcot_scattering.png" alt="k cot delta" width="48%" />
-</p>
-
-<p align="center"><sub><code>K_s_scattering</code> · <code>kcot_scattering</code> — \(J/\psi\,J/\psi\) scattering, combined \(L=12\) + \(L=16\)</sub></p>
 
 ---
 
