@@ -3,7 +3,7 @@
 Each system defines ``input/input_<Name>.py`` with:
 
 - ``InputControl``: ``InputControlBase`` subclass (effective mass / scattering / plot switches).
-- ``ENSEMBLE_DB``: per-ensemble meson/tetraquark channels, ``t_min``, fit priors.
+- ``ENSEMBLE_DATABASE``: per-ensemble meson/tetraquark channels, ``t_min``, fit priors.
 - ``get_lattice_params``: map ``lattice_Ns`` → full ``EnsembleKey``.
 
 ``BuildConfig`` loads a system module and builds runtime ``Config`` objects.
@@ -160,7 +160,7 @@ class InputControlBase(InputControlMixin):
 
 
 # ---------------------------------------------------------------------------
-# Runtime config (InputControl + ENSEMBLE_DB)
+# Runtime config (InputControl + ENSEMBLE_DATABASE)
 # ---------------------------------------------------------------------------
 @dataclass
 class Config:
@@ -338,12 +338,12 @@ def resolve_scattering_chan(
 
 
 def scattering_chan_indices_for_ensemble(
-    ensemble_db: dict,
+    ensemble_database: dict,
     ensemble_key: EnsembleKey,
     scattering_chan: str,
     scattering_chan_MF: str | None = None,
 ) -> ScatteringChanIndices:
-    entry = ensemble_db[ensemble_key]
+    entry = ensemble_database[ensemble_key]
     meson_names = entry["meson"]["channel_name_list"]
     tetra_names = entry["tetraquark"]["channel_name_list"]
     rest = resolve_scattering_chan(scattering_chan, meson_names, tetra_names)
@@ -357,12 +357,12 @@ def scattering_chan_indices_for_ensemble(
     )
 
 
-def scattering_momenta_from_db(
-    ensemble_db: dict,
+def scattering_momenta_from_database(
+    ensemble_database: dict,
     ensemble_key: EnsembleKey,
     scattering_chan: str,
 ) -> list[int]:
-    entry = ensemble_db[ensemble_key]
+    entry = ensemble_database[ensemble_key]
     meson_names = entry["meson"]["channel_name_list"]
     tetra_names = entry["tetraquark"]["channel_name_list"]
     match = resolve_scattering_chan(scattering_chan, meson_names, tetra_names)
@@ -440,21 +440,21 @@ def ratio_point_by_label(config: Config, tetra_label: str, mom: int) -> ChanMom:
 
 
 # ---------------------------------------------------------------------------
-# BuildConfig: InputControl + ENSEMBLE_DB → Config
+# BuildConfig: InputControl + ENSEMBLE_DATABASE → Config
 # ---------------------------------------------------------------------------
-def _prior_mean_keys(db: EnsembleEntry, stem: str) -> list[str]:
+def _prior_mean_keys(branch: EnsembleEntry, stem: str) -> list[str]:
     prefix = f"{stem}_"
-    keys = [k for k in db if k.startswith(prefix) and k[len(prefix) :].isdigit()]
+    keys = [k for k in branch if k.startswith(prefix) and k[len(prefix) :].isdigit()]
     return sorted(keys, key=lambda k: int(k[len(prefix) :]))
 
 
-def _load_prior_errors(db: EnsembleEntry, stem: str, n_state: int) -> list[float]:
+def _load_prior_errors(branch: EnsembleEntry, stem: str, n_state: int) -> list[float]:
     errors: list[float] = []
     for i in range(n_state):
         key = f"{stem}_{i}_error"
-        if key not in db:
-            raise ValueError(f"ENSEMBLE_DB missing {key!r}")
-        errors.append(float(db[key]))
+        if key not in branch:
+            raise ValueError(f"ENSEMBLE_DATABASE missing {key!r}")
+        errors.append(float(branch[key]))
     return errors
 
 
@@ -462,16 +462,16 @@ def _reorder_prior(raw_prior: list) -> list:
     return np.transpose(np.asarray(raw_prior, dtype=float), (1, 2, 0)).tolist()
 
 
-def _fit_windows(db: EnsembleEntry, lattice_Nt: int) -> tuple[list, list]:
-    chan_momentum_list = db["channel_momentum_list"]
-    t_min = db.get("tmin_selected", [[20] * len(moms) for moms in chan_momentum_list])
+def _fit_windows(branch: EnsembleEntry, lattice_Nt: int) -> tuple[list, list]:
+    chan_momentum_list = branch["channel_momentum_list"]
+    t_min = branch.get("tmin_selected", [[20] * len(moms) for moms in chan_momentum_list])
     t_max = [[lattice_Nt - t for t in row] for row in t_min]
     return t_min, t_max
 
 
-def _load_fit_priors(db: EnsembleEntry) -> dict[str, Any]:
-    meff_keys = _prior_mean_keys(db, "prior_meff")
-    weff_keys = _prior_mean_keys(db, "prior_weff")
+def _load_fit_priors(branch: EnsembleEntry) -> dict[str, Any]:
+    meff_keys = _prior_mean_keys(branch, "prior_meff")
+    weff_keys = _prior_mean_keys(branch, "prior_weff")
     if len(meff_keys) != len(weff_keys):
         raise ValueError(
             f"prior_meff / prior_weff state count mismatch: "
@@ -480,10 +480,10 @@ def _load_fit_priors(db: EnsembleEntry) -> dict[str, Any]:
     n_state = len(meff_keys)
     return {
         "n_state": n_state,
-        "meff_prior": _reorder_prior([db[k] for k in meff_keys]),
-        "weff_prior": _reorder_prior([db[k] for k in weff_keys]),
-        "meff_prior_error": _load_prior_errors(db, "prior_meff", n_state),
-        "weff_prior_error": _load_prior_errors(db, "prior_weff", n_state),
+        "meff_prior": _reorder_prior([branch[k] for k in meff_keys]),
+        "weff_prior": _reorder_prior([branch[k] for k in weff_keys]),
+        "meff_prior_error": _load_prior_errors(branch, "prior_meff", n_state),
+        "weff_prior_error": _load_prior_errors(branch, "prior_weff", n_state),
     }
 
 
@@ -515,11 +515,11 @@ class BuildConfig:
     def __post_init__(self) -> None:
         module_name = f"input.input_{self.input_name}"
         self.input_module = importlib.import_module(module_name)
-        for name in ("InputControl", "ENSEMBLE_DB"):
+        for name in ("InputControl", "ENSEMBLE_DATABASE"):
             if not hasattr(self.input_module, name):
                 raise ValueError(f"{module_name} missing {name}")
         self.input_control = self.input_module.InputControl()
-        self.ensemble_db = self.input_module.ENSEMBLE_DB
+        self.ensemble_database = self.input_module.ENSEMBLE_DATABASE
         self.ensemble_key = self.input_control.ensemble_key()
 
     def build_config_from_control(self, analysis_type: str | None = None) -> Config:
@@ -529,14 +529,14 @@ class BuildConfig:
             raise ValueError(f"Unknown analysis_type: {analysis_type!r}")
 
         key = self.ensemble_key
-        if key not in self.ensemble_db:
+        if key not in self.ensemble_database:
             raise ValueError(f"Unknown ensemble key: {key}")
 
-        entry = self.ensemble_db[key]
-        db = entry[analysis_type]
-        meson_db = entry["meson"]
+        entry = self.ensemble_database[key]
+        branch = entry[analysis_type]
+        meson_branch = entry["meson"]
         _, lattice_Nt, _, _ = key
-        t_min, t_max = _fit_windows(db, lattice_Nt)
+        t_min, t_max = _fit_windows(branch, lattice_Nt)
 
         return Config(
             input_name=self.input_name,
@@ -545,15 +545,15 @@ class BuildConfig:
             tag_name=ensemble_tag(key),
             lattice_Nt=lattice_Nt,
             at_invs=entry["at_invs"],
-            chan_momentum_list=db["channel_momentum_list"],
-            chan_name_list=db["channel_name_list"],
-            meson_chan_momentum_list=meson_db["channel_momentum_list"],
-            meson_chan_name_list=meson_db["channel_name_list"],
+            chan_momentum_list=branch["channel_momentum_list"],
+            chan_name_list=branch["channel_name_list"],
+            meson_chan_momentum_list=meson_branch["channel_momentum_list"],
+            meson_chan_name_list=meson_branch["channel_name_list"],
             tetra_chan_name_list=entry["tetraquark"]["channel_name_list"],
             t_GEVP=entry["GEVP"],
             t_min=t_min,
             t_max=t_max,
-            **_load_fit_priors(db),
+            **_load_fit_priors(branch),
             **_branch_switches(ctrl, analysis_type),
             t_run_start=ctrl.t_run_start,
             t_run_stop=ctrl.t_run_stop,

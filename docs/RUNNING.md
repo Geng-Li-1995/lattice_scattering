@@ -128,7 +128,7 @@ Each physical system has an input module under `input/`:
 | File | Role |
 |------|------|
 | `input/config.py` | `InputControlBase`, `BuildConfig`, runtime `Config`, ensemble helpers |
-| `input/input_<System>.py` | System overrides + `ENSEMBLE_DB` |
+| `input/input_<System>.py` | System overrides + `ENSEMBLE_DATABASE` |
 
 Edit the selected system file before running, e.g. `input/input_Tcccc6600.py`.
 Subclass `InputControlBase` and only override fields that differ; the rest inherit defaults.
@@ -335,7 +335,7 @@ This matches the GitHub Actions CI job. See [TESTING.md](TESTING.md) for what ea
 | Missing resampled files | Resampling has not been run for all required ensembles | Set `run_resample_analysis=True` and run `main.py` for each required branch/volume |
 | LaTeX error on plot | TeX not installed | Install TeX or set `"text.usetex": False` in `plotting/plot_set.py` → `RC_PARAMS` |
 | `Unknown lattice_Ns` | Invalid `lattice_Ns` value | Use `12` or `16` (see `get_lattice_params`) |
-| `Unknown ensemble key` | `lattice_Ns` / analysis type mismatch | Check `ENSEMBLE_DB` keys in input file |
+| `Unknown ensemble key` | `lattice_Ns` / analysis type mismatch | Check `ENSEMBLE_DATABASE` keys in input file |
 | Slow first run | Zeta table generation | Wait for completion; file is cached under `data/zeta/zeta_00_rest_lam{λ}_nq{n_q}.npy` |
 | Memory / time on resample | Full jackknife over all configs | Expected; reduce test size or run on a machine with more RAM |
 
@@ -344,7 +344,7 @@ This matches the GitHub Actions CI job. See [TESTING.md](TESTING.md) for what ea
 ## 9. Adding a New Physics System
 
 1. Copy `input/input_Tcccc6600.py` → `input/input_<NewSystem>.py`
-2. Fill in `InputControl` defaults and `ENSEMBLE_DB` entries
+2. Fill in `InputControl` defaults and `ENSEMBLE_DATABASE` entries
 3. Place correlators under `data/<NewSystem>/raw/`
 4. Update `main.py`:
 

@@ -5,7 +5,7 @@ from dataclasses import replace
 import numpy as np
 
 from analysis.scattering import _analyze_rest_momentum, fit_mom_indices, q_sq_linspace
-from input.config import BuildConfig, scattering_momenta_from_db
+from input.config import BuildConfig, scattering_momenta_from_database
 
 
 def test_q_sq_linspace_endpoints():
@@ -30,7 +30,9 @@ def test_analyze_rest_momentum(rng):
 def test_scattering_momentum_indices():
     builder = BuildConfig("Tcccc6600")
     key = (12, 96, 420, 170)
-    assert scattering_momenta_from_db(builder.ensemble_db, key, r"J/\psi\,J/\psi") == [
+    assert scattering_momenta_from_database(
+        builder.ensemble_database, key, r"J/\psi\,J/\psi"
+    ) == [
         0, 1, 2, 3, 4
     ]
     assert [k[0] for k in builder.input_control.scattering_list] == [12, 16]

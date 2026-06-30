@@ -64,7 +64,7 @@ class InputControl(InputControlBase):
 
 
 # See EnsembleEntry in input/config.py for block layout.
-ENSEMBLE_DB: Dict[EnsembleKey, EnsembleEntry] = {
+ENSEMBLE_DATABASE: Dict[EnsembleKey, EnsembleEntry] = {
     (16, 128, 420, 70): {
         "at_invs": 7.219,
         "GEVP": (20, 30, 25),

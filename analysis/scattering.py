@@ -27,7 +27,7 @@ from input.config import (
     ensemble_tag,
     MF_d_tag,
     scattering_chan_indices_for_ensemble,
-    scattering_momenta_from_db,
+    scattering_momenta_from_database,
 )
 from statistics.resample import get_resampler
 
@@ -292,14 +292,14 @@ def run_scattering_analysis(
         q_sq_grid, lamda=config.rest_zeta_lamda, regen_flag=config.regen_rest_zeta
     )
     scattering_dict = defaultdict(dict)
-    ensemble_db = importlib.import_module(
+    ensemble_database = importlib.import_module(
         f"input.input_{config.input_name}"
-    ).ENSEMBLE_DB
+    ).ENSEMBLE_DATABASE
 
     for ensemble_key in config.scattering_list:
         _analyze_ensemble(
             config,
-            ensemble_db,
+            ensemble_database,
             resampled_dict,
             ensemble_key,
             q_sq_grid,
@@ -315,7 +315,7 @@ def run_scattering_analysis(
 
 def _analyze_ensemble(
     config: Config,
-    ensemble_db: dict,
+    ensemble_database: dict,
     resampled_dict: ResampleDataDict,
     ensemble_key,
     q_sq_grid: np.ndarray,
@@ -323,7 +323,7 @@ def _analyze_ensemble(
     scattering_dict: dict,
 ) -> None:
     chans = scattering_chan_indices_for_ensemble(
-        ensemble_db,
+        ensemble_database,
         ensemble_key,
         config.scattering_chan,
         config.scattering_chan_MF,
@@ -343,15 +343,15 @@ def _analyze_ensemble(
         scattering_dict, Ns, q_sq_grid, zeta_00_rest, e0_meson_a, e0_meson_b, lattice_size
     )
 
-    plot_rest_moms = scattering_momenta_from_db(
-        ensemble_db, ensemble_key, config.scattering_chan
+    plot_rest_moms = scattering_momenta_from_database(
+        ensemble_database, ensemble_key, config.scattering_chan
     )
     scattering_dict["plot_moms"][Ns] = {"rest": plot_rest_moms}
 
     if config.run_MF_analysis:
         MF_chan = config.scattering_chan_MF or config.scattering_chan
         plot_MF_count = len(
-            scattering_momenta_from_db(ensemble_db, ensemble_key, MF_chan)
+            scattering_momenta_from_database(ensemble_database, ensemble_key, MF_chan)
         )
         scattering_dict["plot_moms"][Ns]["MF"] = plot_MF_count
 

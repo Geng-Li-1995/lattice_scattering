@@ -35,7 +35,7 @@ This repository implements a **modular, switch-driven** analysis chain used in l
 
 - **Correct tensor geometry** — typed 4D/6D correlators; no silent axis swaps between meson and tetraquark branches.
 - **Unified uncertainty** — `gvar` + jackknife/bootstrap through fits, ratio series, and scattering observables.
-- **Label-driven configuration** — channel indices resolved from LaTeX names in `ENSEMBLE_DB`, not hard-coded in analysis code.
+- **Label-driven configuration** — channel indices resolved from LaTeX names in `ENSEMBLE_DATABASE`, not hard-coded in analysis code.
 - **Decoupled stages** — spectroscopy and scattering can run independently; scattering replays from cached `resampled/` energies.
 
 ### Computational scale (Tcccc6600)
@@ -61,7 +61,7 @@ Meson correlators are **4D**; tetraquark raw data dominates memory. After GEVP b
 
 | Layer | Package | Responsibility |
 |-------|---------|----------------|
-| **Configuration** | `input/` | `InputControl` switches, `ENSEMBLE_DB`, `BuildConfig` → `Config` |
+| **Configuration** | `input/` | `InputControl` switches, `ENSEMBLE_DATABASE`, `BuildConfig` → `Config` |
 | **Data** | `data/` | Typed correlators (`Correlator4D` / 6D tetraquark), `io.py` path helpers, `raw/` & `resampled/` |
 | **Analysis** | `analysis/` | GEVP · effective mass · t_min & ratio · Lüscher scattering · `models.py` registry |
 | **Statistics** | `statistics/` | Jackknife / bootstrap, `run_resample_statistics` → per-replica energies |
@@ -115,20 +115,46 @@ Meson and tetraquark switches are **independent**. Ratio / t_min on tetraquark l
 
 ### 1 · Generalized eigenvalue problem (GEVP)
 
-| Item | Implementation |
+Tetraquark operators are coupled in a finite-volume basis (FVE). GEVP diagonalizes this coupling so each eigenlevel yields a **single-channel** correlator suitable for multi-state cosh fits.
+
+**Physics.** For operators \(O_\alpha\) at reference times \(t_0 < t_1\), solve
+
+\[
+C(t_1)\,\psi = \lambda\, C(t_0)\,\psi,
+\]
+
+with \(C_{\alpha\beta}(t)=\langle O_\alpha(t)\,O_\beta^\dagger(0)\rangle\). Eigenvectors \(v_\beta\) rotate the matrix; **diagonal** elements \(C'_{\beta\beta}(t)\) are the optimized levels fed into 3-state fits.
+
+**Pipeline** (`analysis/gevp.py`, switch `run_GEVP_analysis`):
+
+| Step | What happens |
 |------|----------------|
-| Matrix assembly | Full finite-volume matrix from 6D tetraquark data (`analysis/gevp.py`) |
-| Solve | \(C(t_1)\psi = \lambda\, C(t_0)\psi\) — `scipy.linalg.eig` |
-| Rotation | `numpy.einsum` eigenvector projection |
-| Output | Diagonal GEVP levels → 4D correlators per \((\text{chan}, n^2)\) |
-| Figures | Before/after matrices, eigenvector heatmaps (`plot_gevp.py`) |
+| **6D → FVE matrix** | Raw `[chan_src, mom_src, chan_snk, mom_snk, time, sample]` blocks are assembled into \(C_{\alpha\beta}(t)\). Index \(\alpha\) runs over all \((\text{chan}, n^2)\) pairs in `channel_momentum_list` (Tcccc6600 \(L=12\): 3 + 5 = **8** FVE rows). Shape: `[n_fve, n_fve, time, sample]`. |
+| **Solve** | `scipy.linalg.eig` on ensemble-averaged \(C(t_1)\) and \(C(t_0)\). Times from `ENSEMBLE_DATABASE["GEVP"]` → `Config.t_GEVP = (t_0, t_1, t_\mathrm{sort})`. Example Tcccc6600: \(L=12\) → `(15, 25, 20)`; \(L=16\) → `(30, 40, 35)`. |
+| **Sort** | `greedy_sort_eigenvectors` — greedy matching of large \(|v_{\alpha\beta}|\) so eigenlevel order is stable across jackknife samples. |
+| **Rotate** | \(C'(t) = v^\dagger C(t) v\) via `numpy.einsum("ai,abxy,bj->ijxy", ...)`. |
+| **Extract levels** | Diagonal \(C'_{\beta\beta}(t)\) → 4D `[chan, mom, time, sample]` for downstream fits (`process_GEVP` → `AnalysisCorrelators.with_tetraquark`). |
+
+If `run_GEVP_analysis=False`, the FVE matrix is passed through without rotation (diagonal extraction only).
+
+**Figures** (`plotting/plot_gevp.py`, `run_GEVP_analysis=True`):
+
+| Output | Content |
+|--------|---------|
+| `GEVP_before_{tag}` | Normalized \(\|C_{\alpha\beta}(t_\mathrm{sort})\|\) **before** rotation; operator mixing visible off-diagonal. |
+| `GEVP_after_{tag}` | Same normalization **after** rotation; near-diagonal — levels decoupled. |
+| `GEVP_eigenvector_{tag}` | Real part of \(v_\beta^{(n)}\): eigenvector component vs. eigenlevel index \(\beta\). |
+
+Matrix plots: normalized \(C_{\alpha\beta}/\sqrt{C_{\alpha\alpha}C_{\beta\beta}}\) at \(t_\mathrm{sort}\); black squares mark the diagonal. Axis labels list each FVE operator, e.g. \(\eta_c\eta_c(1)\), \(J/\psi J/\psi(0)\).
+
+**Config:** `t_GEVP` per ensemble in `ENSEMBLE_DATABASE`; `run_GEVP_analysis` only on the tetraquark branch.
 
 ### 2 · Spectroscopy (effective mass)
 
 | Item | Implementation |
 |------|----------------|
 | Models | Registry-based cosh: 2-state (meson) / 3-state (tetraquark) (`models.py`) |
-| Fit | `lsqfit.nonlinear_fit` with channel/momentum priors from `ENSEMBLE_DB` |
+| Fit | `lsqfit.nonlinear_fit` with channel/momentum priors from `ENSEMBLE_DATABASE` |
 | Observables | \(E_n\), \(Z_n/Z_0\), dispersion \(E_n^2(n^2)\) → lattice scale \(\xi\) |
 | Figures | Multi-channel \(E_n\) overlay (`plot_mass.py`); `FIG_WIDE` layout |
 
@@ -171,7 +197,7 @@ Meson and tetraquark switches are **independent**. Ratio / t_min on tetraquark l
 ```
 input/input_<System>.py
 ├── InputControl          # user switches (3 sections: mass · scattering · plot)
-├── ENSEMBLE_DB           # per-ensemble meson/tetraquark blocks
+├── ENSEMBLE_DATABASE           # per-ensemble meson/tetraquark blocks
 └── get_lattice_params()  # lattice_Ns → (Ns, Nt, M_π, EV)
 
 BuildConfig("<System>").build_config_from_control("meson" | "tetraquark")
@@ -234,12 +260,16 @@ Fully-charm tetraquarks \(T_{cc\bar{c}\bar{c}}\) are exotic-hadron candidates at
 
 ### GEVP
 
+Generalized eigenvalue problem on the tetraquark FVE matrix \(C_{\alpha\beta}(t)\) (\(t_0=15\), \(t_1=25\), plot at \(t_\mathrm{sort}=20\) for \(L=12\)). **Before:** strong operator mixing between \(\eta_c\eta_c\) and \(J/\psi\,J/\psi\) blocks. **After:** near-diagonal matrix — optimized levels for 3-state fits. **Eigenvector:** composition of each GEVP level in the original operator basis.
+
 <p align="center">
-  <img src="result/Tcccc6600/GEVP_before_L12M420_EV170.png" alt="GEVP before" width="48%" />
-  <img src="result/Tcccc6600/GEVP_after_L12M420_EV170.png" alt="GEVP after" width="48%" />
+  <img src="result/Tcccc6600/GEVP_before_L12M420_EV170.png" alt="GEVP matrix before diagonalization" width="48%" />
+  <img src="result/Tcccc6600/GEVP_after_L12M420_EV170.png" alt="GEVP matrix after diagonalization" width="48%" />
 </p>
 
-Eigenvectors \(v_\beta^{(n)}\):
+<p align="center"><sub><code>GEVP_before_L12M420_EV170</code> · <code>GEVP_after_L12M420_EV170</code> — normalized \(C_{\alpha\beta}(t/a_t=20)\), snk/src = FVE operators</sub></p>
+
+Eigenvectors \(v_\beta^{(n)}\) (eigenlevel \(n\), component \(\beta\)):
 
 <p align="center">
   <img src="result/Tcccc6600/GEVP_eigenvector_L12M420_EV170.png" alt="GEVP eigenvector" width="48%" />
